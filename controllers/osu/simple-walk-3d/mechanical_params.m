@@ -113,7 +113,7 @@ hshaft_12 = [0 0 leg_offset];
 com_hshaft = [0 0.029 leg_offset-0.0149];
 m_hshaft = 18; % includes spring plates
 i_hshaft_moments = [0.29 0.10 0.27];
-i_hshaft_products = [0 0 0.1];
+i_hshaft_products = 0*[0 0 0.1];
 
 %% BOOM ===================================================================
 pitch_mount_angle = 7.2824 * pi/180;
@@ -145,9 +145,10 @@ boom_mount_to_center = 0.2225;
 boom_mount_to_center_diagonal = boom_mount_to_center / cos(pitch_mount_angle);
 torso_12 = [0 -boom_mount_to_hip -boom_mount_to_center];
 % com_torso = [0 0.05 -0.1577];
-com_torso = [0 0.05 -0.1577 - 0.07 + 0.03];
+com_torso = [0 (0.334-0.318) (-0.2225+0.02)];
 m_torso = 22.2;
-i_torso_moments = [1.5 1.5 2.2];
+% i_torso_moments = [1.5 1.5 2.2];
+i_torso_moments = [1.2 0.7 1.6];
 i_torso_products = [0 0 0];
 winch_hook_offset = [0 0.375 -0.2225];
 d_hip_com_to_torso_com = boom_mount_to_hip - com_hshaft(2) + com_torso(2);

@@ -42,7 +42,8 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   % Robot parameters
   ks_leg = 2950; % Leg rotational spring constant (N*m/rad)
   m_torso = 22.2; % Torso mass (kg)
-  m_leg = 20.15; % Leg mass (kg)
+  m_leg = 20.35; % Leg mass (kg)
+  m_total = m_torso + 2*m_leg; % Total robot mass (kg)
   g = 9.81; % Gravity
 
   % Controller parameters
@@ -107,6 +108,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   persistent dy_est; if isempty(dy_est); dy_est = 0; end % if
   persistent dx_est_e; if isempty(dx_est_e); dx_est_e = 0; end % if
   persistent dy_est_e; if isempty(dy_est_e); dy_est_e = 0; end % if
+  persistent dy_est_avg; if isempty(dy_est_avg); dy_est_avg = 0; end % if
 
   % Persistent variable to keep track of target velocity
   persistent dx_tgt; if isempty(dx_tgt); dx_tgt = 0; end % if
@@ -128,13 +130,21 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   if t_p(17) > dt; eStop = true; else eStop = false; end % if
 
   % Parse right upper trigger
-  if t_p(10) > dt; turbo = 2; else turbo = 1; end % if
+  if t_p(10) > dt;
+    t_c = 1;
+    dx_max = 0.2;
+    dy_max = 0.2;
+  else
+    t_c = 3;
+    dx_max = 1.5;
+    dy_max = 0.2;
+  end % if
 
   % Parse left joystick data
-  dx_cmd = -1.2*turbo*clamp(ps3Axes(2), -1, 1); % X Velocity (m/s)
+  dx_cmd = dx_max*clamp(-ps3Axes(2), -1, 1); % X Velocity (m/s)
 
   % Parse right joystick data
-  dy_cmd = 0.1*turbo*clamp(ps3Axes(3), -1, 1); % Y Velocity (m/s)
+  dy_cmd = dy_max*clamp(ps3Axes(3), -1, 1); % Y Velocity (m/s)
 
   % Simulation overrides
   if isSim
@@ -143,11 +153,10 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     dx_cmd = 0;
     % dx_cmd = 1.5*round(sin(T*2*pi/15));
     % dx_cmd = 0.25*(floor(T/5));
-    % dx_cmd = 2.5*(T > 2);
+    % dx_cmd = 2*(T > 2);
 
     dy_cmd = 0;
-    % dy_cmd = 0.3*round(sin(T*2*pi/15));
-    % dy_cmd = 0.05*(floor(T/5));
+    % dy_cmd = 0.2*round(sin(T*2*pi/15));
   end % if
 
   %% MAIN CONTROLLER ======================================================
@@ -158,7 +167,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     if ~isSim; u_lim = u_lim*clamp(T/2, 0, 1); end % if
 
     % Compute smoothing factor
-    alpha = dt/(3 + dt);
+    alpha = dt/(t_c + dt);
 
     % Filter target velocity commands
     dx_tgt = dx_tgt + alpha*(dx_cmd - dx_tgt);
@@ -174,7 +183,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     l_l = cos(q(leg_l(2))/2 - q(leg_l(1))/2);
     dl_l = -sin(q(leg_l(1))/2 - q(leg_l(2))/2)*(dq(leg_l(1))/2 - q(leg_l(2))/2);
     l_h = 0.1831*stanceLeg;
-    l_t = 0.335*m_leg/(m_torso + 2*m_leg);
+    l_t = 0.334*m_leg/m_total;
 
     % Estimate CoM velocities assuming stance leg is fixed on the ground
     dx = -mean(cos(q(13) + q(leg_l(1:2))).*(dq(13) + dq(leg_l(1:2)))) + l_t*cos(q(13))*dq(13);
@@ -207,7 +216,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
       (dx_est - dx_tgt)*dx_err_p_gain + ...
       (dx_est - dx_est_e)*dx_err_d_gain - ...
       l_t*sin(q(13)) + ...
-      x_offset*m_leg/(m_torso + 2*m_leg) + ...
+      x_offset*m_leg/m_total + ...
       stanceLeg*yaw_offset, ...
       -0.4, 0.4);
 
@@ -262,17 +271,18 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     % Lateral foot placement policy
     d = - (y0_offset - y0_gain*abs(dx_tgt))*stanceLeg - ...
       dy_est*dy_gain - ...
-      (dy_est - dy_cmd)*dy_err_p_gain - ...
-      (dy_est - dy_est_e)*dy_err_d_gain - ...
-      y_offset*m_leg/(m_torso + 2*m_leg) - ...
+      ...(dy_est - dy_cmd)*dy_err_p_gain - ...
+      ...(dy_est - dy_est_e)*dy_err_d_gain - ...
+      ((dy_est + dy_est_e)/2 - dy_cmd)*dy_err_p_gain - ...
+      ((dy_est + dy_est_e)/2 - dy_est_avg)*dy_err_d_gain - ...
+      y_offset*m_leg/m_total - ...
       l_t*sin(q(11));
 
     % Inverse kinematics
     L = sqrt(l_l^2 + l_h^2);
     q1 = real(asin(d/L));
     q2 = real(asin(-l_h/L));
-    q_h = q1 - q2 - q(11);
-    q_h = clamp(q_h, -0.15*stanceLeg, 0.3*stanceLeg);
+    q_h = clamp(q1 - q2 - q(11), -0.15*stanceLeg, 0.35*stanceLeg);
     dq_h = -real((d*l_l*dl_l)/(sqrt(1 - d^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2))) - real((l_h*l_l*dl_l)/(sqrt(1 - l_h^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2))) - dq(11);
 
     % Hip feed-forward torque for gravity compensation
@@ -300,6 +310,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
       x_st_e = x_sw;
       x_sw_e = x_st;
       dx_est_e = dx_est;
+      dy_est_avg = (dy_est + dy_est_e)/2;
       dy_est_e = dy_est;
 
       % Reset time since last switch
@@ -319,7 +330,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     dx_est = 0; dy_est = 0;
     dx_tgt = 0; dy_tgt = 0;
     x_st_e = 0; x_sw_e = 0;
-    dx_est_e = 0; dy_est_e = 0;
+    dx_est_e = 0; dy_est_e = 0; dy_est_avg = 0;
 
     % Leg actuator torques computed to behave like virtual dampers
     u(leg_u) = (0 - dq(leg_m))*kd_leg;
