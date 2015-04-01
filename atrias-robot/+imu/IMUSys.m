@@ -141,7 +141,7 @@ classdef IMUSys < handle
 			end
 
 			% Check for a properly increasing sequence counter
-			if dseq ~= 1
+			if dseq < 1
 				fail_reas = imu.IMUFailReason.WATCHDOG;
 				return
 			end
