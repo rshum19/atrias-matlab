@@ -129,14 +129,14 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   % Parse PS3 button data
   if t_p(17) > dt; eStop = true; else eStop = false; end % if
 
-  % Parse right upper trigger
+  % Parse right lower trigger
   if t_p(10) > dt;
-    t_c = 1;
-    dx_max = 0.2;
-    dy_max = 0.2;
-  else
     t_c = 3;
     dx_max = 1.5;
+    dy_max = 0.2;
+  else
+    t_c = 1;
+    dx_max = 0.2;
     dy_max = 0.2;
   end % if
 
@@ -147,7 +147,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   dy_cmd = dy_max*clamp(ps3Axes(3), -1, 1); % Y Velocity (m/s)
 
   % Simulation overrides
-  if isSim
+  if isSim == 1
     state = 1;
 
     dx_cmd = 0;
@@ -164,7 +164,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   switch state
   case 1 % RUN ------------------------------------------------------------
     % Slowly enable controller
-    if ~isSim; u_lim = u_lim*clamp(T/2, 0, 1); end % if
+    if isSim ~= 1; u_lim = u_lim*clamp(T/2, 0, 1); end % if
 
     % Compute smoothing factor
     alpha = dt/(t_c + dt);
@@ -271,8 +271,6 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     % Lateral foot placement policy
     d = - (y0_offset - y0_gain*abs(dx_tgt))*stanceLeg - ...
       dy_est*dy_gain - ...
-      ...(dy_est - dy_cmd)*dy_err_p_gain - ...
-      ...(dy_est - dy_est_e)*dy_err_d_gain - ...
       ((dy_est + dy_est_e)/2 - dy_cmd)*dy_err_p_gain - ...
       ((dy_est + dy_est_e)/2 - dy_est_avg)*dy_err_d_gain - ...
       y_offset*m_leg/m_total - ...
