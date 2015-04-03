@@ -132,11 +132,11 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   % Parse right lower trigger
   if t_p(10) > dt;
     t_c = 3;
-    dx_max = 1.5;
+    dx_max = 1.0;
     dy_max = 0.2;
   else
     t_c = 1;
-    dx_max = 0.2;
+    dx_max = 0.5;
     dy_max = 0.2;
   end % if
 
