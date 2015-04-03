@@ -109,6 +109,11 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3)
   % Parse PS3 button data
   if ps3.ps > dt; eStop = true; else eStop = false; end % if
 
+  % Parse left lower trigger
+  if ps3.l2 > dt;
+    l_ret = l_ret + 0.1;
+  end % if
+  
   % Parse right lower trigger
   if ps3.r2 > dt;
     t_c = 2; dx_max = 1.0; dy_max = 0.2;
