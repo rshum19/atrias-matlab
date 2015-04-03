@@ -1,4 +1,4 @@
-function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
+function [eStop, u, userOut] = controller(q, dq, userIn, ps3)
 %CONTROLLER Simple ATRIAS walking controller.
 %
 % Description:
@@ -6,28 +6,14 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
 %   through observation of the SLIP model and past failed experiments.
 %   The controller is heuristically built up in layers and includes a few
 %   key concepts:
-%     * Walking
-%       * Passive stance leg behavior (zero hip torque, only axial forces)
-%       * Stance leg push off during second half of stance to inject energy
-%       * Slave swing leg trajectory to stance leg (with very loose gains)
-%       * Ground speed matching and fixed stride length before impact
-%       * Both legs stabilize torso but with a weight based on leg 'force'
-%         - Sum absolute spring torque is used to capture all TD conditions
-%       * Leg relabeling occurs when swing leg exceeds stance leg force
-%     * Standing
-%       * Step length is proportional to CoM velocity plus some error term
-%         - CoM velocity is updated using a weighted filter based on force
-%       * Trajectories are time based unless velocity exceeds some value
-%
-% Notes:
-%   * Anything under 0.75 uses dynamic standing controller
-%   * Anything above 0.75 uses walk controller
-%   * If going from stand to walk, (same direction) do one step transistion
-%   * If going from stand to walk, (other direction) first ramp speed to
-%   zero then do one step transistion
-%   * If going from walk to stand, slow down, switch to stand
-%   * If switching direction of walk, first slow down then switch to stand,
-%   come to stop, then take single step in new direction
+%     * Passive stance leg behavior (zero hip torque, only axial forces)
+%     * Stance leg push off during second half of stance to inject energy
+%     * Both legs stabilize torso but with a weight based on leg 'force'
+%       - Sum absolute spring torque is used to capture all TD conditions
+%     * Leg relabeling occurs when swing leg exceeds stance leg force
+%     * Step length is proportional to CoM velocity plus some error term
+%       - CoM velocity is updated using a weighted filter based on force
+%     * Trajectories are time based unless velocity exceeds some value
 %
 % Copyright 2015 Mikhail S. Jones
 
@@ -51,31 +37,31 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
 
   % Parse user input arguments into convient local variables
   isSim = userIn(1); % Simulation flag
-  u_lim = clamp(userIn(2), 0, 600); % Motor torque limit (N*m)
-  kp_leg = clamp(userIn(3), 0, 5000); % Leg motor proportional gain (N*m/rad)
-  kd_leg = clamp(userIn(4), 0, 500); % Leg motor differential gain (N*m*s/rad)
-  kp_hip = clamp(userIn(5), 0, 2000); % Hip motor proportional gain (N*m/rad)
-  kd_hip = clamp(userIn(6), 0, 200); % Hip motor differential gain (N*m*s/rad)
-  s_torso = clamp(userIn(7), 0, 1); % Scale leg actuator gains for torso stabilization
-  s_leg = clamp(userIn(8), 0, 1); % Scale leg actuator gains for swing phase
-  thres_lo = clamp(userIn(9), 0, 100); % Lower spring torque threshold (N*m)
-  thres_hi = clamp(userIn(10), 0, 100); % Upper spring torque threshold (N*m)
-  tau_c = clamp(userIn(11), 0, 1); % Filter time constant
-  t_step = clamp(userIn(12), 0, 1); % Step duration (s)
-  l0_leg = clamp(userIn(13), 0.85, 0.95); % Nominal leg length (m)
-  l_ret = clamp(userIn(14), 0, 0.3); % Leg retraction (m)
-  l_ext_gain = clamp(userIn(15), 0, 0.1); % Leg extension gain
-  x_offset = clamp(userIn(16), -0.1, 0.1); % X torso CoM offset (m)
-  dx_gain = clamp(userIn(17), 0, 0.3); % X velocity feed forward gain
-  dx_err_p_gain = clamp(userIn(18), 0, 0.3); % X velocity error P gain
-  dx_err_d_gain = clamp(userIn(19), 0, 0.3); % X velocity error D gain
-  y_offset = clamp(userIn(20), -0.1, 0.1); % Y torso CoM offset (m)
-  y0_offset = clamp(userIn(21), -0.2, 0.2); % Y hip offset (m)
-  y0_gain = clamp(userIn(22), -0.1, 0.1); % Y hip offset gain
-  dy_gain = clamp(userIn(23), 0, 0.3); % Y velocity feed forward gain
-  dy_err_p_gain = clamp(userIn(24), 0, 0.3); % Y velocity error P gain
-  dy_err_d_gain = clamp(userIn(25), 0, 0.3); % Y velocity error D gain
-  yaw_offset = clamp(userIn(26), -0.05, 0.05); % Torso yaw offset (rad)
+  u_lim = userIn(2); % Motor torque limit (N*m)
+  kp_leg = userIn(3); % Leg motor proportional gain (N*m/rad)
+  kd_leg = userIn(4); % Leg motor differential gain (N*m*s/rad)
+  kp_hip = userIn(5); % Hip motor proportional gain (N*m/rad)
+  kd_hip = userIn(6); % Hip motor differential gain (N*m*s/rad)
+  s_torso = userIn(7); % Scale leg actuator gains for torso stabilization
+  s_leg = userIn(8); % Scale leg actuator gains for swing phase
+  thres_lo = userIn(9); % Lower spring torque threshold (N*m)
+  thres_hi = userIn(10); % Upper spring torque threshold (N*m)
+  tau_c = userIn(11); % Filter time constant
+  t_step = userIn(12); % Step duration (s)
+  l0_leg = userIn(13); % Nominal leg length (m)
+  l_ret = userIn(14); % Leg retraction (m)
+  l_ext_gain = userIn(15); % Leg extension gain
+  x_offset = userIn(16); % X torso CoM offset (m)
+  dx_gain = userIn(17); % X velocity feed forward gain
+  dx_err_p_gain = userIn(18); % X velocity error P gain
+  dx_err_d_gain = userIn(19); % X velocity error D gain
+  y_offset = userIn(20); % Y torso CoM offset (m)
+  y0_offset = userIn(21); % Y hip offset (m)
+  y0_gain = userIn(22); % Y hip offset gain
+  dy_gain = userIn(23); % Y velocity feed forward gain
+  dy_err_p_gain = userIn(24); % Y velocity error P gain
+  dy_err_d_gain = userIn(25); % Y velocity error D gain
+  yaw_offset = userIn(26); % Torso yaw offset (rad)
 
   % Persistent variable to keep track of run time
   persistent T; if isempty(T); T = 0; else T = T + dt; end % if
@@ -83,17 +69,11 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   % Persistent variable to keep track of time since last stance leg switch
   persistent t; if isempty(t); t = 0; else t = t + dt; end % if
 
-  % Persistent variable to keep track of time PS3 buttons have been pressed
-  persistent t_p; if isempty(t_p); t_p = 0*ps3Buttons; else t_p = ps3Buttons.*(t_p + dt); end % if
-
   % Persistent variable to keep track of controller state
   persistent state; if isempty(state); state = 0; end % if
 
   % Persistent variable to keep track of current stance leg
   persistent stanceLeg; if isempty(stanceLeg); stanceLeg = 1; end % if
-
-  % Persistent variable to keep track of extra swing leg clearence
-  persistent l_clr; if isempty(l_clr); l_clr = 0; end % if
 
   % Persistent variable to keep track of states at last switch
   persistent x_st_e; if isempty(x_st_e); x_st_e = 0; end % if
@@ -124,39 +104,30 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
   end % if
 
   % Parse start button data
-  if t_p(4) > 1; state = 1; elseif t_p(4) > 0; state = 0; end % if
+  if ps3.start > 1; state = 1; elseif ps3.start > 0; state = 0; end % if
 
   % Parse PS3 button data
-  if t_p(17) > dt; eStop = true; else eStop = false; end % if
+  if ps3.ps > dt; eStop = true; else eStop = false; end % if
 
   % Parse right lower trigger
-  if t_p(10) > dt;
-    t_c = 3;
-    dx_max = 1.0;
-    dy_max = 0.2;
+  if ps3.r2 > dt;
+    t_c = 2; dx_max = 1.0; dy_max = 0.2;
   else
-    t_c = 1;
-    dx_max = 0.5;
-    dy_max = 0.2;
+    t_c = 1; dx_max = 0.5; dy_max = 0.2;
   end % if
 
   % Parse left joystick data
-  dx_cmd = dx_max*clamp(-ps3Axes(2), -1, 1); % X Velocity (m/s)
+  dx_cmd = dx_max*clamp(ps3.leftStickY, -1, 1); % X Velocity (m/s)
 
   % Parse right joystick data
-  dy_cmd = dy_max*clamp(ps3Axes(3), -1, 1); % Y Velocity (m/s)
+  dy_cmd = dy_max*clamp(ps3.rightStickX, -1, 1); % Y Velocity (m/s)
 
   % Simulation overrides
   if isSim == 1
-    state = 1;
-
-    dx_cmd = 0;
+    state = 1; dx_cmd = 0; dy_cmd = 0;
     % dx_cmd = 1.5*round(sin(T*2*pi/15));
     % dx_cmd = 0.25*(floor(T/5));
     % dx_cmd = 2*(T > 2);
-
-    dy_cmd = 0;
-    % dy_cmd = 0.2*round(sin(T*2*pi/15));
   end % if
 
   %% MAIN CONTROLLER ======================================================
@@ -225,9 +196,9 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
 
     % Swing leg retraction policy
     if s < 0.5
-      [l_sw, dl_sw] = cubic(0, 0.5, l0_leg, l0_leg - (l_ret + l_clr), 0, 0, s, 1);
+      [l_sw, dl_sw] = cubic(0, 0.5, l0_leg, l0_leg - l_ret, 0, 0, s, 1);
     else
-      [l_sw, dl_sw] = cubic(0.5, 1, l0_leg - (l_ret + l_clr), l0_leg, 0, 0, s, 1);
+      [l_sw, dl_sw] = cubic(0.5, 1, l0_leg - l_ret, l0_leg, 0, 0, s, 1);
     end
 
     % Swing leg swing policy
@@ -247,9 +218,6 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     % Stance leg push off policy (extend leg after mid stance linearly)
     l_st = l0_leg + l_ext*clamp(2*s - 1, 0, 1);
     dl_st = l_ext/(t_step/2);
-
-    % Stance leg step down policy (retract leg if drop is detected)
-    % l_st = l_st + clamp(y_sw - y_st, -l_ret, 0);
 
     % Target stance leg actuator positions
     q_st = mean(q(leg_l(1:2))) + [-1; 1]*real(acos(l_st));
@@ -280,7 +248,7 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
     L = sqrt(l_l^2 + l_h^2);
     q1 = real(asin(d/L));
     q2 = real(asin(-l_h/L));
-    q_h = clamp(q1 - q2 - q(11), -0.15*stanceLeg, 0.35*stanceLeg);
+    q_h = clamp(q1 - q2 - q(11), -0.13*stanceLeg, 0.35*stanceLeg);
     dq_h = -real((d*l_l*dl_l)/(sqrt(1 - d^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2))) - real((l_h*l_l*dl_l)/(sqrt(1 - l_h^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2))) - dq(11);
 
     % Hip feed-forward torque for gravity compensation
@@ -297,12 +265,9 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
       [s_st; s_sw].*s_torso.*(q(11)*kp_hip + dq(11)*kd_hip);
 
     % Detect when swing leg force exceeds stance leg force
-    if (s_sw > s_st && t > 0.2) || s >= 1
+    if (s_sw > s_st && t > t_step/2) || s >= 1
       % Switch stance legs
       stanceLeg = -stanceLeg;
-
-      % Estimate extra required swing leg clearence in case of step
-      %l_clr = clamp(abs(y_sw - y_st), 0, 0.15);
 
       % Exit conditions
       x_st_e = x_sw;
@@ -322,7 +287,6 @@ function [eStop, u, userOut] = controller(q, dq, userIn, ps3Axes, ps3Buttons)
 
   otherwise % RELAX -------------------------------------------------------
     % Reset persistent variables
-    % l_clr = 0;
     t = 0; T = 0;
     x_est = 0; y_est = 0;
     dx_est = 0; dy_est = 0;
