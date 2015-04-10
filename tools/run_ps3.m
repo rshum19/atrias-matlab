@@ -1,5 +1,7 @@
 function run_ps3(isTest)
 %RUN_PS3 Run PS3 controller input with graphical display.
+%
+% Copyright 2015 Mikhail S. Jones
 
   % Check input arguments and set defaults
   if nargin == 0; isTest = false; end % if
@@ -9,7 +11,7 @@ function run_ps3(isTest)
 
   % Initialize joystick
   vrj = vrjoystick(1);
-  
+
   % Get current simulink model
   model = gcs;
 
@@ -65,8 +67,8 @@ function run_ps3(isTest)
     % Check test state
     if ~isTest
       % Pass joystick data to Simulink model
-      set_param([model '/PS3 Axes'], 'Value', mat2str(a));
-      set_param([model '/PS3 Buttons'], 'Value', mat2str(b));
+      set_param([model '/Controller'], 'ps3Axes', mat2str(a));
+      set_param([model '/Controller'], 'ps3Buttons', mat2str(b));
     end % if
 
     % Flush system queue
