@@ -44,7 +44,6 @@ MEDULLA_ADC_MAX_VOLTS     = 2.70; % Volts
 % Renishaw Absolute 32-bit encoders
 LEG_A_CALIB_LOC = pi + 0.305432619099008; % Radians
 LEG_B_CALIB_LOC = pi - 0.305432619099008; % Radians
-max_encoder_velocity = 100; % Radians/sec
 
 % Ticks to radians constants
 BOOM_PITCH_ENCODER_RAD_PER_TICK = -2*pi / (2^17 * 2); % Ticks to rad constant = rad_per_rev / (ticks_per_rev * gear_ratio)
@@ -97,7 +96,7 @@ LEG1_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG1_LEG_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_TRAN_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_MOTOR_A_DIRECTION = -1.0; 
-LEG1_MOTOR_B_DIRECTION = -1.0;
+LEG1_MOTOR_B_DIRECTION = 1.0;
 
 % Left Leg (A/B flipped)
 LEG2_LEG_A_CALIB_VAL   = 264865073;      %Calibration encoder value in ticks
@@ -119,14 +118,15 @@ BOOM_ROBOT_VERTICAL_OFFSET = 0.3434; % meters,
 BOOM_HEIGHT = 1.0287; % meters, top of the center of rotation to robot ground level
 
 % Soft limits for motor positions
+HARD_MOTOR_POSITION_LIMITS_UPPER = [3.60; 4.78; 2.47]; % A B retraction
+HARD_MOTOR_POSITION_LIMITS_LOWER = [1.51; 2.68; 0.50]; % A B extension
 limExt = 0.1;
-MOTOR_POSITION_LIMITS_UPPER = [3.60-limExt; 4.78-limExt; 2.47-0.3]; % A B retraction
-MOTOR_POSITION_LIMITS_LOWER = [1.51+limExt; 2.68+limExt; 0.50+0.15]; % A B extension
-
+MOTOR_POSITION_LIMITS_UPPER = [HARD_MOTOR_POSITION_LIMITS_UPPER(1:2)-limExt; HARD_MOTOR_POSITION_LIMITS_UPPER(3)-0.3];
+MOTOR_POSITION_LIMITS_LOWER = [HARD_MOTOR_POSITION_LIMITS_LOWER(1:2)+limExt; HARD_MOTOR_POSITION_LIMITS_LOWER(3)+0.15];
 %% params for DAQ functions
 fcut_smooth = 16*(2*pi); % Hz, low pass filter cutoff frequency for removing encoder dropouts
 fcut_unwrap = 8*(2*pi); % Hz, low pass filter cutoff frequency for unwrapping angles
-max_encoder_velocity = 200; % rad/s, max rate which encoder values can change
+max_motor_velocity = 7.88; % rad/s
 sensor_start_time = 8; % s
 % two pole low-pass filter params for velocity estimation
 fcut_velocity = 60*(2*pi); % Hz, low pass filter cutoff frequency for velocities
@@ -138,7 +138,7 @@ A_lpf_velocity = 1 + B1_lpf_velocity + B2_lpf_velocity;
 % Parameters related to incremental encoder decoding
 INC_ENC_RAD_PER_TICK = 2*pi/14000/LEG_MTR_GEAR_RATIO;
 LEG_INC_ENCODER_DIRECTION_RIGHT_BACK = -1.0;
-LEG_INC_ENCODER_DIRECTION_RIGHT_FRONT = -1.0;
+LEG_INC_ENCODER_DIRECTION_RIGHT_FRONT = 1.0;
 LEG_INC_ENCODER_DIRECTION_LEFT_BACK = 1.0;
 LEG_INC_ENCODER_DIRECTION_LEFT_FRONT = -1.0;
 MEDULLA_TIMER_FREQ = 32e6;
