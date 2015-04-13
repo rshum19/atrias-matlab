@@ -4,7 +4,20 @@ classdef MikhailController < Controller
 % Copyright 2015 Mikhail S. Jones
 
   % PUBLIC PROPERTIES =====================================================
+  properties (Logical = true)
+    % Trigger based on time
+    isTimeTrig@logical = true
+    % Trigger based on force
+    isForceTrig@logical = true
+    % Update nominal leg length during step ups
+    isLengthUpdate@logical = true
+  end % properties
+
   properties
+    % Time invariant trigger threshold
+    timeThres@double = 1
+    % Force trigger threshold
+    forceThres@double = 0.25
     % Leg trajectory velocity scaling factor
     dt_gain@double = 0.35
     % Leg P Gain (N*m/rad)
@@ -29,16 +42,12 @@ classdef MikhailController < Controller
     t_step@double = 0.35
     % Leg Extension Gain (m)
     l_ext_gain@double = 0.02
-    % X Center of Mass Offset (m)
-    x_offset@double = 0
     % X Velocity Feed-Forward Gain
     dx_gain@double = 0.18
     % X Velocity Error P Gain
     dx_err_p_gain@double = 0.1
     % X Velocity Error D Gain
     dx_err_d_gain@double = 0.1
-    % Y Center of Mass Offset (m)
-    y_offset@double = 0.02
     % Y Velocity Feed-Forward Gain
     dy_gain@double = 0.2
     % Y Velocity Error P Gain
@@ -53,6 +62,10 @@ classdef MikhailController < Controller
 
   % PROTECTED PROPERTIES ==================================================
   properties (Access = protected)
+    % Length of stance leg at switch
+    l_leg_last@double = 0.91
+    % Storage for passing signals to output function
+    tmp@double = zeros(1,2)
     % Time since last step (s)
     t@double = 0
     % Gait mode
@@ -63,6 +76,10 @@ classdef MikhailController < Controller
     l0_leg@double = 0.91
     % Swing Leg Retraction (m)
     l_ret@double = 0.2
+    % X Center of Mass Offset (m)
+    x_offset@double = 0
+    % Y Center of Mass Offset (m)
+    y_offset@double = 0.02
     % Stance toe X position of last step (m)
     x_st_e@double = 0
     % Swing toe X position of last step (m)
@@ -109,7 +126,7 @@ classdef MikhailController < Controller
     %USERSETUP Initialize system object.
 
       % Reset objects
-      obj.gaitMode = GaitMode.Normal;
+      obj.gaitMode = GaitMode.Dynamic;
 
       % Reset parameters
       obj.t = 0;
@@ -124,13 +141,13 @@ classdef MikhailController < Controller
       obj.dy_est_avg = 0;
       obj.dx_tgt = 0;
       obj.dy_tgt = 0;
+      obj.l_leg_last = obj.l0_leg;
     end % userSetup
 
     function userOut = userOutput(obj)
     %USEROUTPUT User output function.
 
-      userOut = [...
-        obj.t, ...
+      userOut = [obj.t, obj.tmp, obj.l_leg_last, ...
         obj.x_est, obj.y_est, ...
         obj.dx_est, obj.dy_est, ...
         obj.dx_tgt, obj.dy_tgt];
@@ -204,7 +221,7 @@ classdef MikhailController < Controller
         -0.4, 0.4);
 
       % Define a time variant parameter
-      s = clamp(obj.t/obj.t_step, 0, 1);
+      s = clamp(obj.t/obj.t_step, 0, Inf);
       ds = obj.dt_gain/obj.t_step;
 
       % Swing leg retraction policy
@@ -225,7 +242,7 @@ classdef MikhailController < Controller
       u(leg_u(3:4)) = obj.s_leg*((q_sw - q(leg_m(3:4)))*obj.kp_leg + (dq_sw - dq(leg_m(3:4)))*obj.kd_leg);
 
       % Stance leg push off policy (extend leg after mid stance linearly)
-      [l_st, dl_st] = linear_interp([0, 0.5, 1], [obj.l0_leg, obj.l0_leg, obj.l0_leg + l_ext], s, ds);
+      [l_st, dl_st] = linear_interp([0, 0.5, 1], [obj.l_leg_last, obj.l_leg_last, obj.l_leg_last + l_ext], s, ds);
 
       % Target stance leg actuator positions
       q_st = mean(q(leg_l(1:2))) + [-1; 1]*real(acos(l_st));
@@ -273,7 +290,7 @@ classdef MikhailController < Controller
         [s_st s_sw].*obj.s_torso.*(q(11)*obj.kp_hip + dq(11)*obj.kd_hip);
 
       % Detect when swing leg force exceeds stance leg force
-      if (s_sw > s_st && obj.t > obj.t_step/2) || s >= 1
+      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.5) || obj.isTimeTrig*(s >= obj.timeThres)
         % Switch stance legs
         obj.stanceLeg = -obj.stanceLeg;
 
@@ -283,10 +300,16 @@ classdef MikhailController < Controller
         obj.dx_est_e = obj.dx_est;
         obj.dy_est_avg = (obj.dy_est + obj.dy_est_e)/2;
         obj.dy_est_e = obj.dy_est;
+        if obj.isLengthUpdate
+          obj.l_leg_last = l_sw;
+        end % if
 
         % Reset time since last switch
         obj.t = 0;
       end % if
+
+      % Pass signals to output function
+      obj.tmp = [s_st, s_sw];
     end % userStep
 
     function parsePS3Controller(obj)
