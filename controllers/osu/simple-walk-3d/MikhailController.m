@@ -9,8 +9,6 @@ classdef MikhailController < Controller
     isTimeTrig@logical = true
     % Trigger based on force
     isForceTrig@logical = true
-    % Update nominal leg length during step ups
-    isLengthUpdate@logical = true
   end % properties
 
   properties
@@ -33,9 +31,9 @@ classdef MikhailController < Controller
     % Swing Leg Gain Scalaing
     s_leg@double = 0.5
     % Lower Torque Threshold (N*m)
-    thres_lo@double = 30
+    thres_lo@double = 40
     % Upper Torque Threshold (N*m)
-    thres_hi@double = 60
+    thres_hi@double = 80
     % Filter Time Constant (s)
     tau_c@double = 0.12
     % Step Duration (s)
@@ -77,9 +75,9 @@ classdef MikhailController < Controller
     % Swing Leg Retraction (m)
     l_ret@double = 0.2
     % X Center of Mass Offset (m)
-    x_offset@double = 0
+    x_offset@double = 0.015
     % Y Center of Mass Offset (m)
-    y_offset@double = 0.02
+    y_offset@double = 0.075
     % Stance toe X position of last step (m)
     x_st_e@double = 0
     % Swing toe X position of last step (m)
@@ -126,7 +124,7 @@ classdef MikhailController < Controller
     %USERSETUP Initialize system object.
 
       % Reset objects
-      obj.gaitMode = GaitMode.Dynamic;
+      obj.gaitMode = GaitMode.Normal;
 
       % Reset parameters
       obj.t = 0;
@@ -290,7 +288,7 @@ classdef MikhailController < Controller
         [s_st s_sw].*obj.s_torso.*(q(11)*obj.kp_hip + dq(11)*obj.kd_hip);
 
       % Detect when swing leg force exceeds stance leg force
-      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.5) || obj.isTimeTrig*(s >= obj.timeThres)
+      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.9) || obj.isTimeTrig*(s >= obj.timeThres)
         % Switch stance legs
         obj.stanceLeg = -obj.stanceLeg;
 
@@ -300,16 +298,14 @@ classdef MikhailController < Controller
         obj.dx_est_e = obj.dx_est;
         obj.dy_est_avg = (obj.dy_est + obj.dy_est_e)/2;
         obj.dy_est_e = obj.dy_est;
-        if obj.isLengthUpdate
-          obj.l_leg_last = l_sw;
-        end % if
+        obj.l_leg_last = l_sw;
 
         % Reset time since last switch
         obj.t = 0;
       end % if
 
       % Pass signals to output function
-      obj.tmp = [s_st, s_sw];
+      obj.tmp = [obj.ks_leg*mean(abs(q(leg_m(1:2)) - q(leg_l(1:2)))), obj.ks_leg*mean(abs(q(leg_m(3:4)) - q(leg_l(3:4))))];
     end % userStep
 
     function parsePS3Controller(obj)
@@ -329,15 +325,15 @@ classdef MikhailController < Controller
         t_c = 1; dx_max = 0.1; dy_max = 0.1;
       case GaitMode.Dynamic
         obj.l0_leg = 0.91;
-        obj.l_ret = 0.25;
-        t_c = 3; dx_max = 0.6; dy_max = 0.2;
+        obj.l_ret = 0.3;
+        t_c = 3; dx_max = 0.5; dy_max = 0.2;
       % case GaitMode.Hop
       %   obj.l0_leg = 0.91;
       %   obj.l_ret = 0.15;
       %   t_c = 1; dx_max = 0.2; dy_max = 0.2;
       otherwise % GaitMode.Normal
         obj.l0_leg = 0.91;
-        obj.l_ret = 0.15;
+        obj.l_ret = 0.2;
         t_c = 3; dx_max = 0.75; dy_max = 0.2;
       end % switch
 
@@ -376,11 +372,12 @@ classdef MikhailController < Controller
       end % if
 
       % Compute smoothing factor
-      alpha = obj.sampleRate/(t_c + obj.sampleRate);
+      alpha_x = obj.sampleRate/(t_c + obj.sampleRate);
+      alpha_y = obj.sampleRate/(t_c/3 + obj.sampleRate);
 
       % Filter target velocity commands
-      obj.dx_tgt = obj.dx_tgt + alpha*(dx_cmd - obj.dx_tgt);
-      obj.dy_tgt = obj.dy_tgt + alpha*(dy_cmd - obj.dy_tgt);
+      obj.dx_tgt = obj.dx_tgt + alpha_x*(dx_cmd - obj.dx_tgt);
+      obj.dy_tgt = obj.dy_tgt + alpha_y*(dy_cmd - obj.dy_tgt);
     end % parsePS3Controller
   end % methods
 end % classdef
