@@ -41,3 +41,7 @@ Thumbs.db
 ####################
 *.mp4
 *.avi
+
+# Misplaced Simulink build artifacts #
+######################################
+io_config_xml_0.h
