@@ -16,6 +16,10 @@ addpath([currentFolder '/tools/']);
 % Open model to assign parameters
 atrias_system;
 
+% Set build directory
+set_param(0, 'CacheFolder', [currentFolder '/build']);
+set_param(0, 'CodeGenFolder', [currentFolder '/build']);
+
 % Assign ethercat parameters
 set_param('atrias_system/EtherCAT Init', 'pci_bus', '2');
 set_param('atrias_system/EtherCAT Init', 'pci_slot', '0');

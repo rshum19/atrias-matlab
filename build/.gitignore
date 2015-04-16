@@ -1,0 +1,7 @@
+# This file exists so that git will automatically create the build/ directory
+# (the one this file resides in).
+
+# Ignore everything in this directory (except this file),
+# as they should all be build artifacts.
+*
+!.gitignore
