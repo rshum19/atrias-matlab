@@ -1,110 +1,159 @@
-% This class handles the unwrapping and decoding for an encoder.
+% MATLAB System (Simulink block) for decoding an ATRIAS Renishaw encoder.
+%
+% This is currently specialized to the Renishaw encoders on ATRIAS,
+% but could be easily extended to handle the robot's other encoders.
+%
+% This includes a filter for rejecting erroneous outputs from the encoders.
+% If used on a different encoder type, this filter should be made optional
+% (or modified, if used for the absolute encoders on the hips).
+%
+% This does not un-wrap the encoder values. If used for any other encoder,
+% un-wrapping must be implemented! See Encoder.m for a clean way to do this.
 
-classdef Encoder < handle
-	methods
-		% The constructor. Takes in a couple of values about the encoder.
-		%
-		% Parameters:
-		%     bits          The number of bits this encoder has (i.e. it should take an 2^bits distinct values total)
-		%     rads_per_tick The number of radians rotated per tick for this encoder. The sign controls the encoder's direction conventions.
-		function this = Encoder(rads_per_tick, bits)
-			this.rads_per_tick = rads_per_tick;
-            
-			if nargin >= 2
-				this.bits = int64(bits);
-			else
-				this.bits = int64(0);
-			end
-		end % Encoder
+classdef RSEncoder < matlab.System
+	properties
+		% Calibration position
+		calibPos@double
 
-		% This sets up the initial calibration for the encoder.  
-		%
-		% Parameters:
-		%     calib_pos   The current position [rad]
-		%     calib_tics  The current position [tics]
-		function initialize(this, calib_pos, calib_tics)
-			this.calib_pos   = calib_pos;
-			this.calib_tics  = int64(calib_tics);
-			this.initialized = true;
+		% Calibration Ticks
+		calibTicks@double
+
+		% Units per tick
+		unitsPerTick@double
+
+		% Minimum acceptable position
+		minPos@double
+
+		% Maximum acceptable position
+		maxPos@double
+
+		% Maximum acceptable speed
+		maxSpd@double
+
+		% Medulla counter modulus (wrapping value)
+		counterMod = 256
+
+		% Medulla timer frequency (Hz)
+		medullaFreq = 32e6;
+
+		% Cycle delta time (sample time)
+		sampleTime@double
+	end
+
+	properties (Access = protected)
+		% Whether or not this object has been initialized (i.e.
+		% whether the first valid data has been received).
+		isInitialized = false
+
+		% Most recent known-valid values
+		pos = 0
+		vel = 0
+
+		% Previous cycle values. Not necessarily from valid cycles!
+		prevCounter = 0
+		prevTs      = 0
+
+		% Delta time (towards the next velocity calculation)
+		dt = 0
+	end
+
+	methods (Access = protected)
+		% Decodes a given tick count into the corresponding position.
+		function pos = decodePos(this, ticks)
+			pos = this.calibPos + this.unitsPerTick * (ticks - this.calibTicks);
 		end
 
-		% Update the class state and process the encoder's data.
-		% This will return 0 for position and velocity until initialize() has been called.
-		% Since two data samples are needed to compute velocity, the first call after initialize()
-		% will return a zero velocity (so as to not rely on the availability of encoder data before initialize() is called).
-		%
-		% Parameters:
-		%     new_ticks     The new encoder tick count.
-		%     new_timestamp The new timestamp. Omit if no timestamps are available.
-		%
-		% Returns: The current position (radians) and velocity (rad/s)
-		function [pos, vel] = update(this, new_ticks, new_timestamp)
-			% Offset the tics by the calibration position
-			new_ticks = int64(new_ticks) - this.calib_tics;
+		% Determine whether the given new position and velocity are "trustworthy"
+		function trust = trustData(this, newPos, newVel)
+			trust = false;
 
-			% Make sure to output zeros until initialize() has been called.
-			if ~this.initialized
-				pos = 0.0;
-				vel = 0.0;
+			% Throw out duplicate values, as the Medulla latches
+			% values when the encoder sets an error flag
+			if newPos == this.pos
 				return
 			end
-            
-			if nargin < 3
-				new_timestamp = 0;
+
+			% Throw out out-of-range positions
+			if newPos < this.minPos || newPos > this.maxPos
+				return
 			end
 
-			% Update the current position.
-			dticks = new_ticks - this.cur_ticks; % Grab the difference -- this is correct mod 2^bits, but takes on the (incorrect) range (-2^bits, 2^bits)
-			if this.bits ~= 0 % If we need to wrap
-				dticks = mod(dticks + 2^(this.bits-1), 2^this.bits) - 2^(this.bits-1); % This leaves a correct value mod 2^bits in the range (-2^(bits-1), 2^(bits-1))
-			end
-			this.cur_ticks = this.cur_ticks + dticks;
-
-			% Compute the position (if requested by the caller)
-			if nargin >= 1
-				pos = this.calib_pos + this.rads_per_tick * double(this.cur_ticks);
+			% Throw out out-of-range velocities
+			if abs(newVel) > this.maxSpd
+				return
 			end
 
-			% Update the velocity (if requested by the caller)
-			if nargout >= 2
-				% Account for the difference in time to sample the sensor
-				dtimestamps = new_timestamp - this.timestamp;
-				% Time between this sample and the previous one
-				dt = this.sample_time + dtimestamps/this.MEDULLA_TIMER_FREQ;
-
-				% Compute the velocity through finite differencing
-				vel = this.rads_per_tick * double(dticks) / double(dt);
+			% Verify that the velocity is finite
+			% (a nonfinite velocity could occur (dt == 0))
+			if ~isfinite(newVel)
+				return
 			end
-            
-			% Update the stored position and timestamp data
-			this.prev_ticks = new_ticks;
-			this.timestamp  = new_timestamp;
+
+			% We've made it through all the checks, so trust the new value
+			trust = true;
+		end
+
+		% Initialization routine. This gets run each iteration until initialization is complete.
+		function initialize(this, newTicks, newCounter, newTs)
+			% Return early (don't initialize) if we have yet to receive data
+			if newCounter == 0
+				return
+			end
+
+			% Compute the current position for use in validation and initialization
+			pos = this.decodePos(newTicks);
+
+			% Check that the received position is sane. If not, don't initialize yet
+			% (otherwise the filter will latch the bad value).
+			if ~this.trustData(pos, 0)
+				return
+			end
+
+			% We just received the first cycle of data! Initialize
+			% all uninitialized members
+			this.isInitialized = true;
+			this.pos           = pos;
+		end
+
+		% Update routine. This gets run each cycle after initialization is complete
+		function update(this, newTicks, newCounter, newTs)
+			% Update the delta time and counter value
+			this.dt = this.dt + this.sampleTime * mod(newCounter - this.prevCounter, this.counterMod) + (newTs - this.prevTs) / this.medullaFreq;
+
+			% Compute the new position from the given data,
+			% and use it to calculate the velocity as well
+			newPos = this.decodePos(newTicks);
+			newVel = (newPos - this.pos) / this.dt;
+
+			% Ignore the new data if it's not trustworthy
+			if ~this.trustData(newPos, newVel)
+				return
+			end
+
+			% Store the new position and velocity
+			this.pos = newPos;
+			this.vel = newVel;
+
+			% Reset the delta time for the next velocity calculation
+			this.dt = 0;
+		end
+
+		function [pos, vel] = stepImpl(this, newTicks, newCounter, newTs)
+			% If we're initialized, perform a normal update. Otherwise,
+			% run the initialization routine
+			if this.isInitialized
+				this.update(newTicks, newCounter, newTs);
+			else
+				this.initialize(newTicks, newCounter, newTs);
+			end
+
+			% Update the "previous cycle" values
+			this.prevCounter = newCounter;
+			this.prevTs      = newTs;
+
+			% Set our outputs
+			pos = this.pos;
+			vel = this.vel;
 		end
 	end
-
-	properties
-		% Basic encoder properties (see the constructor for their meanings)
-		bits@int64
-		rads_per_tick
-
-		% Calibration position
-		calib_pos        = 0; % [rad]
-		calib_tics@int64 = int64(0); % [tics]
-
-		% Saved state (used for differentiation in update())
-		prev_ticks@int64
-		timestamp = 0;
-
-		% Current location (in ticks) -- this is after unwrapping. Relative to the calibration tick count
-		cur_ticks@int64 = int64(0);
-
-		% Initialization state
-		initialized = false % Whether or not initialize() has been called
-		running     = false % Whether or not ticks and timestamp have been properly initialized -- used to delay velocity updating until 2 samples have been done
-	end
-    
-	properties (Access = private, Constant = true)
-		sample_time = 0.001;
-		MEDULLA_TIMER_FREQ = 32e6;
-	end
-end % classdef
+end
