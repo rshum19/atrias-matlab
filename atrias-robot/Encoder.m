@@ -58,7 +58,7 @@ classdef Encoder < matlab.System
 		prevTicks@int64 = int64(0)
 
 		% Calibration location
-		calibVal = 0
+		lastCalibVal = 0
 
 		% Accumulated delta time (toward the next velocity calculation)
 		dt = 0
@@ -69,10 +69,10 @@ classdef Encoder < matlab.System
 		% Data filter properties. These are set at each iteration by
 		% stepImpl. These are properties, rather than passed in,
 		% to aid subclasses in overriding trustData()
-		minPos = -inf % Minimum acceptable position
-		maxPos =  inf % Maximum acceptable position
-		maxVel =  inf % Maximum acceptable velocity
-		minVel = -inf % Maximum acceptable velocity
+		filtMinPos = -inf % Minimum acceptable position
+		filtMaxPos =  inf % Maximum acceptable position
+		filtMaxVel =  inf % Maximum acceptable velocity
+		filtMinVel = -inf % Maximum acceptable velocity
 	end
 
 	methods
@@ -93,12 +93,12 @@ classdef Encoder < matlab.System
 			trust = false;
 
 			% Throw out out-of-range positions
-			if newPos < this.minPos || newPos > this.maxPos
+			if newPos < this.filtMinPos || newPos > this.filtMaxPos
 				return
 			end
 
 			% Throw out out-of-range velocities
-			if newVel < this.minVel || newVel > this.maxVel
+			if newVel < this.filtMinVel || newVel > this.filtMaxVel
 				return
 			end
 
@@ -164,7 +164,7 @@ classdef Encoder < matlab.System
 			this.posTicks = this.unwrapTicks(ticks - calibTicks);
 
 			% Copy over other calibration values
-			this.calibVal = calibVal;
+			this.lastCalibVal = calibVal;
 
 			% Record that calibration has occurred
 			this.calibrated = true;
@@ -180,7 +180,7 @@ classdef Encoder < matlab.System
 			this.dt = this.dt + dt;
 
 			% Compute the new position and velocity
-			pos = this.decodePos(newPosTicks, this.calibVal);
+			pos = this.decodePos(newPosTicks, this.lastCalibVal);
 			vel = (pos - this.pos) / this.dt;
 
 			% Check if it's acceptable. If not, quit early (throwing out the data)
@@ -200,10 +200,10 @@ classdef Encoder < matlab.System
 		% This should be overrode and called by subclasses
 		function [pos, vel, isValid] = stepImpl(this, ticks, dt, calibTicks, calibVal, calibTrig, unitsPerTick, minPos, maxPos, minVel, maxVel)
 			% Copy over the filter settings
-			this.minPos = minPos;
-			this.maxPos = maxPos;
-			this.minVel = minVel;
-			this.maxVel = maxVel;
+			this.filtMinPos = minPos;
+			this.filtMaxPos = maxPos;
+			this.filtMinVel = minVel;
+			this.filtMaxVel = maxVel;
 
 			% Copy over miscellaneous settings
 			this.posUnitsPerTick = unitsPerTick;
