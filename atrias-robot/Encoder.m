@@ -7,20 +7,35 @@
 %
 % Most of the settings have been made inputs so they can be changed on the fly
 % by the Simulink model or set by a subclass.
+%
+% Inputs:
+%     ticks        Current raw encoder reading
+%     dt           Delta time since the last encoder reading
+%     calibTicks   Calibration location in ticks
+%     calibVal     Output position at the calibration location.
+%     calibTrig    Setting this to true triggers calibration to occur
+%     unitsPerTick The number of output units per tick, for linear encoders
+%     minPos       Minimum acceptable position. -inf to disable minimum position check
+%     maxPos       Maximum acceptable position. +inf to disable maximum position check
+%     minVel       Minimum acceptable velocity. -inf to disable minimum velocity check
+%     maxVel       Maximum acceptable velocity. +inf to disable maximum velocity check
+%
+% Outputs:
+%     pos     Current position
+%     vel     Current velocity
+%     isValid Whether the output position and velocity are valid yet
 
 classdef Encoder < matlab.System
 	properties
 		% Unwrapping modulus (0 for no unwrap)
-		unwrapMod@int64 = 0
+		unwrapMod = 0
 
 		% Initial position output
 		initPosOut@double = 0
 
 		% Initial velocity output
 		initVelOut@double = 0
-	end
 
-	properties (Logical = true)
 		% Check for non-finite pos or vel
 		checkInf@logical = false
 
@@ -37,10 +52,10 @@ classdef Encoder < matlab.System
 		vel = 0
 
 		% Current position relative to the calibration position, in ticks
-		posTicks@int64 = 0
+		posTicks@int64 = int64(0)
 
 		% Last iteration's tick count, for differentiation.
-		prevTicks@int64 = 0
+		prevTicks@int64 = int64(0)
 
 		% Calibration location
 		calibVal = 0
@@ -49,7 +64,7 @@ classdef Encoder < matlab.System
 		dt = 0
 
 		% Output position units per tick (for linear encoders)
-		unitsPerTick@double = 0
+		posUnitsPerTick@double = 0
 
 		% Data filter properties. These are set at each iteration by
 		% stepImpl. These are properties, rather than passed in,
@@ -60,14 +75,16 @@ classdef Encoder < matlab.System
 		minVel = -inf % Maximum acceptable velocity
 	end
 
-	methods (Access = protected)
+	methods
 		% Constructor; does some basic initialization
 		function this = Encoder
 			% Copy over the initial position and velocity values
 			this.pos = this.initPosOut;
 			this.vel = this.initVelOut;
 		end
+	end
 
+	methods (Access = protected)
 		% Determine whether the given new position and velocity are "trustworthy"
 		function trust = trustData(this, newPos, newVel)
 			% We'll have a series of guards that return early if they detect
@@ -113,7 +130,7 @@ classdef Encoder < matlab.System
 		% Processes the given position. This takes in a tick count relative to the calibration
 		% location and returns a position. May be overridden for nonlinear encoders
 		function pos = decodePos(this, ticks, calibVal)
-			pos = calibVal + this.unitsPerTick * ticks;
+			pos = calibVal + this.posUnitsPerTick * ticks;
 		end
 
 		% Checks if we should calibrate on this cycle.
@@ -189,7 +206,7 @@ classdef Encoder < matlab.System
 			this.maxVel = maxVel;
 
 			% Copy over miscellaneous settings
-			this.unitsPerTick = unitsPerTick;
+			this.posUnitsPerTick = unitsPerTick;
 
 			% Compute a new position iff calibration's already been done.
 			if this.calibrated
