@@ -5,8 +5,6 @@ classdef MikhailController < Controller
 
   % PUBLIC PROPERTIES =====================================================
   properties (Logical = true)
-    % Trigger based on time
-    isTimeTrig@logical = true
     % Trigger based on force
     isForceTrig@logical = true
   end % properties
@@ -28,7 +26,7 @@ classdef MikhailController < Controller
     kd_hip@double = 70
     % Torso Gain Scaling
     s_torso@double = 0.5
-    % Swing Leg Gain Scalaing
+    % Swing Leg Gain Scaling
     s_leg@double = 0.5
     % Lower Torque Threshold (N*m)
     thres_lo@double = 40
@@ -41,11 +39,11 @@ classdef MikhailController < Controller
     % Leg Extension Gain (m)
     l_ext_gain@double = 0.02
     % X Velocity Feed-Forward Gain
-    dx_gain@double = 0.18
+    dx_gain@double = 0.18 % 0.1895@0.5, 0.1820@1, 0.1665@1.5
     % X Velocity Error P Gain
-    dx_err_p_gain@double = 0.1
+    dx_err_p_gain@double = 0.1 % 0.0631@0.5, 0.0638@1, 0.0159@1.5
     % X Velocity Error D Gain
-    dx_err_d_gain@double = 0.1
+    dx_err_d_gain@double = 0.1 % 0.0755@0.5, 0.0756@1, 0.0285@1.5
     % Y Velocity Feed-Forward Gain
     dy_gain@double = 0.2
     % Y Velocity Error P Gain
@@ -75,7 +73,7 @@ classdef MikhailController < Controller
     % Swing Leg Retraction (m)
     l_ret@double = 0.2
     % X Center of Mass Offset (m)
-    x_offset@double = 0.015
+    x_offset@double = 0
     % Y Center of Mass Offset (m)
     y_offset@double = 0.075
     % Stance toe X position of last step (m)
@@ -145,7 +143,9 @@ classdef MikhailController < Controller
     function userOut = userOutput(obj)
     %USEROUTPUT User output function.
 
-      userOut = [obj.t, obj.tmp, obj.l_leg_last, ...
+      % userOut = [obj.tmp];
+      userOut = [...
+        obj.t, ...
         obj.x_est, obj.y_est, ...
         obj.dx_est, obj.dy_est, ...
         obj.dx_tgt, obj.dy_tgt];
@@ -174,40 +174,39 @@ classdef MikhailController < Controller
 
       % Cartesian position of toes relative to hip in world frame
       x_st = sum(sin(q(13) + q(leg_l(1:2)))/2);
-      y_st = sum(cos(q(13) + q(leg_l(1:2)))/2);
       x_sw = sum(sin(q(13) + q(leg_l(3:4)))/2);
-      y_sw = sum(cos(q(13) + q(leg_l(3:4)))/2);
 
       % Forward kinematic lengths
       l_l = cos(q(leg_l(2))/2 - q(leg_l(1))/2);
       dl_l = -sin(q(leg_l(1))/2 - q(leg_l(2))/2)*(dq(leg_l(1))/2 - q(leg_l(2))/2);
       l_h = 0.1831*obj.stanceLeg;
-      l_t = 0.334*obj.m_leg/obj.m_total;
+      l_t = 0.334*obj.m_torso/obj.m_total;
 
       % Estimate CoM velocities assuming stance leg is fixed on the ground
-      dx = -mean(cos(q(13) + q(leg_l(1:2))).*(dq(13) + dq(leg_l(1:2)))) + l_t*cos(q(13))*dq(13);
-      dy = (l_l*cos(q(hip_m(1)) + q(11)) - l_h*sin(q(hip_m(1)) + q(11)))*(dq(hip_m(1)) + dq(11)) + l_t*cos(q(11))*dq(11);
+      % Simplified 2D kinematics
+      % dx = -mean(cos(q(13) + q(leg_l(1:2))).*(dq(13) + dq(leg_l(1:2)))) + l_t*cos(q(13))*dq(13);
+      % dy = (l_l*cos(q(hip_m(1)) + q(11)) - l_h*sin(q(hip_m(1)) + q(11)))*(dq(hip_m(1)) + dq(11)) + l_t*cos(q(11))*dq(11);
+      % Full 3D kinematics
+      dx = -((sin(q(leg_l(1)) - q(leg_l(2)))*(sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(13) - cos(q(13))*cos(pi/2 + q(leg_l(1)))*dq(leg_l(1)) - cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(13) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*sin(q(11))*dq(hip_m(1)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*dq(hip_m(1)) + cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(13))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(13) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*sin(q(11))*dq(11) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*dq(11) - sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1))))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) - cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(13) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(leg_l(1)) - cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13) - cos(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(leg_l(1)) + cos(q(13))*sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13) + cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11) + cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(11)))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(dq(leg_l(1)) - dq(leg_l(2)))*(cos(q(13))*sin(pi/2 + q(leg_l(1))) + cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13)) - cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))))/2 + (sin(q(leg_l(1)) - q(leg_l(2)))*(dq(leg_l(1)) - dq(leg_l(2)))*(cos(q(13))*cos(pi/2 + q(leg_l(1))) - cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*sin(pi/2 + q(leg_l(1))) + sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))))/2 + (cos(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)))/2 + (cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(13))/2 - l_t*cos(q(13))*cos(q(11))*dq(13) + l_t*sin(q(13))*sin(q(11))*dq(11) + (cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(leg_l(1)))/2 + (cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13))/2 + l_h*cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*dq(hip_m(1)) + l_h*cos(q(hip_m(1)))*cos(q(13))*sin(q(11))*dq(13) + l_h*cos(q(13))*cos(q(11))*sin(q(hip_m(1)))*dq(13) + l_h*cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*dq(11) - (cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(leg_l(1)))/2 - (cos(q(13))*sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13))/2 - (cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - (cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - l_h*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(hip_m(1)) - l_h*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(11));
+      dy = (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1))))*(dq(leg_l(1)) - dq(leg_l(2))))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11))*dq(leg_l(1)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*dq(leg_l(1)) + cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11) - sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) - sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11)))/2 - (sin(q(leg_l(1)) - q(leg_l(2)))*(cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(hip_m(1)) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(11) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(11))*sin(q(hip_m(1)))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(11)))/2 + (sin(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1))) + cos(q(11))*sin(q(hip_m(1)))*sin(pi/2 + q(leg_l(1))))*(dq(leg_l(1)) - dq(leg_l(2))))/2 + l_t*cos(q(11))*dq(11) - (cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11))*dq(leg_l(1)))/2 - (cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*dq(leg_l(1)))/2 - (cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - l_h*cos(q(hip_m(1)))*sin(q(11))*dq(hip_m(1)) - l_h*cos(q(11))*sin(q(hip_m(1)))*dq(hip_m(1)) - l_h*cos(q(hip_m(1)))*sin(q(11))*dq(11) - l_h*cos(q(11))*sin(q(hip_m(1)))*dq(11) + (sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 + (sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2;
 
       % Scaling factors representing the magnitude of force in each leg
       s_st = scaleFactor(obj.ks_leg*mean(abs(q(leg_m(1:2)) - q(leg_l(1:2)))), obj.thres_lo, obj.thres_hi);
       s_sw = scaleFactor(obj.ks_leg*mean(abs(q(leg_m(3:4)) - q(leg_l(3:4)))), obj.thres_lo, obj.thres_hi);
 
-      % Update CoM velocity estimates based on confidence leg is on ground
-      if s_st >= 1
-        % Compute smoothing factor
-        alpha = obj.sampleRate/(obj.tau_c + obj.sampleRate);
+      % Compute smoothing factor based on confidence leg is on the ground
+      alpha = s_st*obj.sampleRate/(obj.tau_c + obj.sampleRate);
 
-        % Filter velocity estimate, ignoring bad (large) values
-        obj.dx_est = obj.dx_est + alpha*(dx - obj.dx_est)*(abs(dx) < 3);
-        obj.dy_est = obj.dy_est + alpha*(dy - obj.dy_est)*(abs(dy) < 1);
-      end % if
+      % Filter velocity estimate, ignoring bad (large) values
+      obj.dx_est = obj.dx_est + alpha*(dx - obj.dx_est)*(abs(dx) < 3);
+      obj.dy_est = obj.dy_est + alpha*(dy - obj.dy_est)*(abs(dy) < 1);
 
       % Update CoM position estimates
       obj.x_est = obj.x_est + obj.dx_est*obj.sampleRate;
       obj.y_est = obj.y_est + obj.dy_est*obj.sampleRate;
 
       % Stance leg push-off is proportional to desired speed and error
-      l_ext = clamp(obj.l_ext_gain*abs(obj.dx_tgt), 0, 0.96 - obj.l0_leg)*(sign(obj.dx_tgt) == sign(obj.dx_est));
+      l_ext = clamp(obj.l_ext_gain*abs(obj.dx_tgt), 0, 0.97 - obj.l0_leg)*(sign(obj.dx_tgt) == sign(obj.dx_est));
 
       % Step length is proportional to current velocity
       l_step = clamp(...
@@ -215,8 +214,8 @@ classdef MikhailController < Controller
         (obj.dx_est - obj.dx_tgt)*obj.dx_err_p_gain + ...
         (obj.dx_est - obj.dx_est_e)*obj.dx_err_d_gain - ...
         l_t*sin(q(13)) + ...
-        obj.x_offset*obj.m_leg/obj.m_total, ...
-        -0.4, 0.4);
+        obj.x_offset*obj.m_torso/obj.m_total, ...
+        -0.5, 0.5);
 
       % Define a time variant parameter
       s = clamp(obj.t/obj.t_step, 0, Inf);
@@ -241,7 +240,7 @@ classdef MikhailController < Controller
 
       % Stance leg push off policy (extend leg after mid stance linearly)
       [l_st, dl_st] = linear_interp([0, 0.5, 1], [obj.l_leg_last, obj.l_leg_last, obj.l_leg_last + l_ext], s, ds);
-
+    
       % Target stance leg actuator positions
       q_st = mean(q(leg_l(1:2))) + [-1; 1]*real(acos(l_st));
 
@@ -264,7 +263,7 @@ classdef MikhailController < Controller
         obj.dy_est*obj.dy_gain - ...
         ((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt)*obj.dy_err_p_gain - ...
         ((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg)*obj.dy_err_d_gain - ...
-        obj.y_offset*obj.m_leg/obj.m_total - ...
+        obj.y_offset*obj.m_torso/obj.m_total - ...
         l_t*sin(q(11));
 
       % Inverse kinematics
@@ -288,7 +287,7 @@ classdef MikhailController < Controller
         [s_st s_sw].*obj.s_torso.*(q(11)*obj.kp_hip + dq(11)*obj.kd_hip);
 
       % Detect when swing leg force exceeds stance leg force
-      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.9) || obj.isTimeTrig*(s >= obj.timeThres)
+      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.9) || s >= obj.timeThres
         % Switch stance legs
         obj.stanceLeg = -obj.stanceLeg;
 
@@ -305,7 +304,7 @@ classdef MikhailController < Controller
       end % if
 
       % Pass signals to output function
-      obj.tmp = [obj.ks_leg*mean(abs(q(leg_m(1:2)) - q(leg_l(1:2)))), obj.ks_leg*mean(abs(q(leg_m(3:4)) - q(leg_l(3:4))))];
+      obj.tmp = [s_st, s_sw];
     end % userStep
 
     function parsePS3Controller(obj)
@@ -334,7 +333,7 @@ classdef MikhailController < Controller
       otherwise % GaitMode.Normal
         obj.l0_leg = 0.91;
         obj.l_ret = 0.2;
-        t_c = 3; dx_max = 0.75; dy_max = 0.2;
+        t_c = 3; dx_max = 1; dy_max = 0.2;
       end % switch
 
       % Parse center of mass trimming
@@ -368,7 +367,7 @@ classdef MikhailController < Controller
         dx_cmd = 0; dy_cmd = 0;
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = 0.25*(floor(obj.runTime/5));
-        % dx_cmd = 1.5*(obj.runTime > 2);
+        dx_cmd = 2*(obj.runTime >= 5);
       end % if
 
       % Compute smoothing factor
