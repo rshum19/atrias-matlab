@@ -21,7 +21,7 @@ classdef ElmoIncremental < Encoder
 
 	methods (Access = protected)
 		function [pos, vel] = stepImpl(this, incTicks, calibVal, calibTrig)
-			[pos, vel] = stepImpl@super(incTicks, this.sample_time, incTicks, calibVal, calibTrig, this.unitsPerTick, 0, inf, -inf, inf, -inf);
+			[pos, vel] = stepImpl@Encoder(this, incTicks, this.sample_time, incTicks, calibVal, calibTrig, this.unitsPerTick, int64(0), -inf, inf, -inf, inf);
 		end
 	end
 end
