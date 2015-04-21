@@ -162,6 +162,9 @@ classdef Encoder < matlab.System
 			% Copy over other calibration values
 			this.calibLoc = calibVal;
 
+			% Finish setting up the state.
+			this.curState.rawTicks = ticks;
+
 			% Record that calibration has occurred
 			this.calibrated = true;
 		end
@@ -172,7 +175,7 @@ classdef Encoder < matlab.System
 			newState = EncoderState;
 
 			% Compute the position delta and new position tick count
-			dticks = this.unwrapTicks(ticks - this.curState.posTicks);
+			dticks = this.unwrapTicks(ticks - this.curState.rawTicks);
 			newState.posTicks = this.curState.posTicks + dticks;
 
 			% Update the delta time for the velocity calculation
@@ -188,8 +191,9 @@ classdef Encoder < matlab.System
 			end
 
 			% Store the new values and reset the delta time for the next iteration
-			this.curState = newState;
-			this.dt       = 0;
+			newState.rawTicks = ticks;
+			this.curState     = newState;
+			this.dt           = 0;
 		end
 
 		% Simulink's update function. Called at each model iteration.
@@ -213,7 +217,7 @@ classdef Encoder < matlab.System
 
 			% Run the calibration routine, if the calibration trigger has been specified
 			if calibTrig
-				this.calibrate(ticks, calibTicks, calibVal)
+				this.calibrate(int64(ticks), calibTicks, calibVal)
 			end
 
 			% Set our outputs

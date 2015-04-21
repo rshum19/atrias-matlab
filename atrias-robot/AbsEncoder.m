@@ -35,7 +35,7 @@ classdef AbsEncoder < MedullaEncoder
 			trust = false;
 
 			% Check for duplicate values, if enabled
-			if this.dropRepeatVals && (newState.posTicks == this.curState.posTicks)
+			if this.dropRepeatVals && (newState.rawTicks == this.curState.rawTicks)
 				return
 			end
 
