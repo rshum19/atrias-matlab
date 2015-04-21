@@ -325,7 +325,7 @@ classdef MikhailController < Controller
       case GaitMode.Dynamic
         obj.l0_leg = 0.91;
         obj.l_ret = 0.3;
-        t_c = 3; dx_max = 0.5; dy_max = 0.2;
+        t_c = 3; dx_max = 0.5*2; dy_max = 0.2;
       % case GaitMode.Hop
       %   obj.l0_leg = 0.91;
       %   obj.l_ret = 0.15;
