@@ -12,7 +12,7 @@ classdef AbsEncoder < MedullaEncoder
 		calibVal = 0
 
 		% Unwrapping modulus
-		unwrapMod = 0
+		unwrapMod@int64 = int64(0)
 
 		% Drop repeated values
 		dropRepeatVals = false
@@ -29,18 +29,18 @@ classdef AbsEncoder < MedullaEncoder
 
 	methods (Access = protected)
 		% Check for repeated values, if enabled
-		function trust = trustData(this, newPos, newVel)
+		function trust = trustData(this, newState)
 			% Like Encoder's trust Data, we have guards which return
 			% early if any issues are encountered
 			trust = false;
 
 			% Check for duplicate values, if enabled
-			if this.dropRepeatVals && (newPos == this.pos)
+			if this.dropRepeatVals && (newState.posTicks == this.curState.posTicks)
 				return
 			end
 
 			% Forward up to the superclass's trustData() function
-			trust = trustData@MedullaEncoder(this, newPos, newVel);
+			trust = trustData@MedullaEncoder(this, newState);
 		end
 
 		function [pos, vel, isValid] = stepImpl(this, ticks, counter, timestamp)

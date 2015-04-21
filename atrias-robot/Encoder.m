@@ -45,18 +45,11 @@ classdef Encoder < matlab.System
 		% Whether or not a calibration has been performed.
 		calibrated = false
 
-		% Most recent known-valid values
-		pos = 0
-		vel = 0
-
-		% Current position relative to the calibration position, in ticks
-		posTicks@int64 = int64(0)
-
-		% Last (valid) tick count, for differentiation.
-		prevTicks@int64 = int64(0)
+		% Current "state" -- most recent known valid values
+		curState@EncoderState
 
 		% Calibration location
-		lastCalibVal = 0
+		calibLoc = 0
 
 		% Accumulated delta time (toward the next velocity calculation)
 		dt = 0
@@ -65,7 +58,7 @@ classdef Encoder < matlab.System
 		posUnitsPerTick@double = 0
 
 		% Unwrapping modulus (0 for no unwrap)
-		encUnwrapMod = 0
+		encUnwrapMod@int64 = int64(0)
 
 		% Data filter properties. These are set at each iteration by
 		% stepImpl. These are properties, rather than passed in,
@@ -80,31 +73,32 @@ classdef Encoder < matlab.System
 		% Constructor; does some basic initialization
 		function this = Encoder
 			% Copy over the initial position and velocity values
-			this.pos = this.initPosOut;
-			this.vel = this.initVelOut;
+			this.curState     = EncoderState;
+			this.curState.pos = this.initPosOut;
+			this.curState.vel = this.initVelOut;
 		end
 	end
 
 	methods (Access = protected)
 		% Determine whether the given new position and velocity are "trustworthy"
-		function trust = trustData(this, newPos, newVel)
+		function trust = trustData(this, newState)
 			% We'll have a series of guards that return early if they detect
 			% an issue with the data. At the end, if we pass all guards,
 			% we set this to true.
 			trust = false;
 
 			% Throw out out-of-range positions
-			if newPos < this.filtMinPos || newPos > this.filtMaxPos
+			if newState.pos < this.filtMinPos || newState.pos > this.filtMaxPos
 				return
 			end
 
 			% Throw out out-of-range velocities
-			if newVel < this.filtMinVel || newVel > this.filtMaxVel
+			if newState.vel < this.filtMinVel || newState.vel > this.filtMaxVel
 				return
 			end
 
 			% Verify that the new data is finite (if the check is enabled)
-			if this.checkInf && (~isfinite(newPos) || ~isfinite(newVel))
+			if this.checkInf && (~isfinite(newState.pos) || ~isfinite(newState.vel))
 				return
 			end
 
@@ -145,12 +139,13 @@ classdef Encoder < matlab.System
 
 			% Compute the position given the current tick count and calibration location.
 			% Assumes the encoder is within half a (modular) rotation of the calibration rotation.
-			pos = this.decodePos(this.unwrapTicks(ticks - calibTicks), calibVal);
+			calibState     = EncoderState;
+			calibState.pos = this.decodePos(this.unwrapTicks(ticks - calibTicks), calibVal);
 
 			% Calibrate iff the data is trustworthy.
 			% We ignore the velocity because we don't have enough information
 			% to compute it yet.
-			out = this.trustData(pos, 0);
+			out = this.trustData(calibState);
 		end
 
 		% Calibration function. Check if we need to calibrate,
@@ -162,10 +157,10 @@ classdef Encoder < matlab.System
 			end
 
 			% Compute the position relative to the calibration location
-			this.posTicks = this.unwrapTicks(ticks - calibTicks);
+			this.curState.posTicks = this.unwrapTicks(ticks - calibTicks);
 
 			% Copy over other calibration values
-			this.lastCalibVal = calibVal;
+			this.calibLoc = calibVal;
 
 			% Record that calibration has occurred
 			this.calibrated = true;
@@ -173,28 +168,28 @@ classdef Encoder < matlab.System
 
 		% Main update routine. Handles position and velocity computation
 		function update(this, ticks, dt)
+			% Create a new state object for this iteration's computed position and velocity
+			newState = EncoderState;
+
 			% Compute the position delta and new position tick count
-			dticks = this.unwrapTicks(ticks - this.prevTicks);
-			newPosTicks = this.posTicks + dticks;
+			dticks = this.unwrapTicks(ticks - this.curState.posTicks);
+			newState.posTicks = this.curState.posTicks + dticks;
 
 			% Update the delta time for the velocity calculation
 			this.dt = this.dt + dt;
 
 			% Compute the new position and velocity
-			pos = this.decodePos(newPosTicks, this.lastCalibVal);
-			vel = (pos - this.pos) / this.dt;
+			newState.pos = this.decodePos(newState.posTicks, this.calibLoc);
+			newState.vel = (newState.pos - this.curState.pos) / this.dt;
 
 			% Check if it's acceptable. If not, quit early (throwing out the data)
-			if ~this.trustData(pos, vel)
+			if ~this.trustData(newState)
 				return
 			end
 
-			% Store the new values, and reset the delta time for the next iteration
-			this.posTicks  = newPosTicks;
-			this.prevTicks = ticks;
-			this.pos       = pos;
-			this.vel       = vel;
-			this.dt        = 0;
+			% Store the new values and reset the delta time for the next iteration
+			this.curState = newState;
+			this.dt       = 0;
 		end
 
 		% Simulink's update function. Called at each model iteration.
@@ -222,8 +217,8 @@ classdef Encoder < matlab.System
 			end
 
 			% Set our outputs
-			pos     = this.pos;
-			vel     = this.vel;
+			pos     = this.curState.pos;
+			vel     = this.curState.vel;
 			isValid = this.calibrated;
 		end
 	end
