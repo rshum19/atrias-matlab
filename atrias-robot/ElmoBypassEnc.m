@@ -7,7 +7,7 @@ classdef ElmoBypassEnc < MedullaEncoder
 		unitsPerTick = 0
 
 		% Medulla encoder unwrapping modulus
-		unwrapMod = 0
+		unwrapMod@int64 = int64(2^16)
 
 		% Encoder routed through Medulla
 		bypass@logical = false
@@ -17,9 +17,9 @@ classdef ElmoBypassEnc < MedullaEncoder
 		function [pos, vel] = stepImpl(this, elmoTicks, medullaTicks, counter, timestamp, calibVal, calibTrig)
 			if this.bypass
 				[pos, vel] = stepImpl@MedullaEncoder(...
-					medullaTicks, counter, timestamp, ticks, calibVal, calibTrig, this.unitsPerTick, this.unwrapMod, -inf, inf, -inf, inf);
+					this, medullaTicks, counter, timestamp, medullaTicks, calibVal, calibTrig, this.unitsPerTick, this.unwrapMod, -inf, inf, -inf, inf);
 			else
-				[pos, vel] = stepImpl@Encoder(elmoTicks, this.sample_time, ticks, calibVal, calibTrig, this.unitsPerTick, 0, inf, -inf, inf, -inf);
+				[pos, vel] = stepImpl@Encoder(this, elmoTicks, this.sample_time, elmoTicks, calibVal, calibTrig, this.unitsPerTick, int64(0), -inf, inf, -inf, inf);
 			end
 		end
 	end
