@@ -24,7 +24,7 @@ classdef MedullaEncoder < Encoder
 	end
 
 	methods (Access = protected)
-		function [pos, vel, isValid] = stepImpl(this, ticks, counter, timestamp, calibTicks, calibVal, calibTrig, unitsPerTick, minPos, maxPos, minVel, maxVel)
+		function [pos, vel, isValid] = stepImpl(this, ticks, counter, timestamp, calibTicks, calibVal, calibTrig, unitsPerTick, unwrapMod, minPos, maxPos, minVel, maxVel)
 			% Compute the delta time value for this iteration
 			dt = this.sample_time * mod(counter - this.prevCntr, this.counterMod) + (timestamp - this.prevTs) / this.medullaFreq;
 
@@ -33,7 +33,7 @@ classdef MedullaEncoder < Encoder
 			this.prevTs   = timestamp;
 
 			% Forward the remaining work to the Encoder class
-			[pos, vel, isValid] = stepImpl@super(ticks, dt, calibTicks, calibVal, calibTrig, unitsPerTick, minPos, maxPos, minVel, maxVel);
+			[pos, vel, isValid] = stepImpl@Encoder(this, ticks, dt, calibTicks, calibVal, calibTrig, unitsPerTick, unwrapMod, minPos, maxPos, minVel, maxVel);
 		end
 	end
 end

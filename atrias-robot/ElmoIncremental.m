@@ -13,7 +13,7 @@
 classdef ElmoIncremental < Encoder
 	properties
 		% Output units per tick
-		unitsPerTick
+		unitsPerTick = 0
 
 		% Sample time
 		sample_time = 0.001
@@ -21,7 +21,7 @@ classdef ElmoIncremental < Encoder
 
 	methods (Access = protected)
 		function [pos, vel] = stepImpl(this, incTicks, calibVal, calibTrig)
-			[pos, vel] = stepImpl@super(incTicks, this.sample_time, incTicks, calibVal, calibTrig, this.unitsPerTick, inf, -inf, inf, -inf);
+			[pos, vel] = stepImpl@super(incTicks, this.sample_time, incTicks, calibVal, calibTrig, this.unitsPerTick, 0, inf, -inf, inf, -inf);
 		end
 	end
 end

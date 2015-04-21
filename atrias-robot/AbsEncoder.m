@@ -11,27 +11,50 @@ classdef AbsEncoder < MedullaEncoder
 		% Calibration location
 		calibVal = 0
 
-		% Maximum acceptable position
-		maxPos = inf
+		% Unwrapping modulus
+		unwrapMod = 0
+
+		% Drop repeated values
+		dropRepeatVals = false
 
 		% Minimum acceptable position
 		minPos = -inf
+
+		% Maximum acceptable position
+		maxPos = inf
 
 		% Maximum acceptable speed
 		maxSpd = inf
 	end
 
 	methods (Access = protected)
+		% Check for repeated values, if enabled
+		function trust = trustData(this, newPos, newVel)
+			% Like Encoder's trust Data, we have guards which return
+			% early if any issues are encountered
+			trust = false;
+
+			% Check for duplicate values, if enabled
+			if this.dropRepeatVals && (newPos == this.pos)
+				return
+			end
+
+			% Forward up to the superclass's trustData() function
+			trust = trustData@MedullaEncoder(this, newPos, newVel);
+		end
+
 		function [pos, vel, isValid] = stepImpl(this, ticks, counter, timestamp)
 			% Forward the work up to MedullaEncoder
-			[pos, vel, isValid] = stepImpl@super(...
+			[pos, vel, isValid] = stepImpl@MedullaEncoder(...
+				this,                   ...
 				ticks,                  ...
 				counter,                ...
 				timestamp,              ...
 				int64(this.calibTicks), ...
-				calibVal,               ...
+				this.calibVal,          ...
 				counter ~= 0,           ...
 				this.unitsPerTick,      ...
+				this.unwrapMod,         ...
 				this.minPos,            ...
 				this.maxPos,            ...
 				-this.maxSpd,           ...

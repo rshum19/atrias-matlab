@@ -15,6 +15,7 @@
 %     calibVal     Output position at the calibration location.
 %     calibTrig    Setting this to true triggers calibration to occur
 %     unitsPerTick The number of output units per tick, for linear encoders
+%     unwrapMod    Modulus for encoder unwrapping. Set to 0 to disable unwrapping
 %     minPos       Minimum acceptable position. -inf to disable minimum position check
 %     maxPos       Maximum acceptable position. +inf to disable maximum position check
 %     minVel       Minimum acceptable velocity. -inf to disable minimum velocity check
@@ -27,9 +28,6 @@
 
 classdef Encoder < matlab.System
 	properties
-		% Unwrapping modulus (0 for no unwrap)
-		unwrapMod = 0
-
 		% Initial position output
 		initPosOut@double = 0
 
@@ -54,7 +52,7 @@ classdef Encoder < matlab.System
 		% Current position relative to the calibration position, in ticks
 		posTicks@int64 = int64(0)
 
-		% Last iteration's tick count, for differentiation.
+		% Last (valid) tick count, for differentiation.
 		prevTicks@int64 = int64(0)
 
 		% Calibration location
@@ -65,6 +63,9 @@ classdef Encoder < matlab.System
 
 		% Output position units per tick (for linear encoders)
 		posUnitsPerTick@double = 0
+
+		% Unwrapping modulus (0 for no unwrap)
+		encUnwrapMod = 0
 
 		% Data filter properties. These are set at each iteration by
 		% stepImpl. These are properties, rather than passed in,
@@ -115,7 +116,7 @@ classdef Encoder < matlab.System
 		% into the range [-unwrapMod/2, unwrapMod/2)
 		function out = unwrapTicks(this, ticks)
 			% Don't unwrap if unwrapping is disabled
-			if this.unwrapMod <= 0
+			if this.encUnwrapMod <= 0
 				out = ticks;
 				return
 			end
@@ -124,13 +125,13 @@ classdef Encoder < matlab.System
 			% to the input modulo this.unwrapMod.
 			% These two restrictions give a unique solution. This line guarantees
 			% that these restrictions hold, and therefore gives the desired solution
-			out = mod(ticks + (this.unwrapMod/2), this.unwrapMod) - (this.unwrapMod/2);
+			out = mod(ticks + (this.encUnwrapMod/2), this.encUnwrapMod) - (this.encUnwrapMod/2);
 		end
 
 		% Processes the given position. This takes in a tick count relative to the calibration
 		% location and returns a position. May be overridden for nonlinear encoders
 		function pos = decodePos(this, ticks, calibVal)
-			pos = calibVal + this.posUnitsPerTick * ticks;
+			pos = calibVal + this.posUnitsPerTick * double(ticks);
 		end
 
 		% Checks if we should calibrate on this cycle.
@@ -189,16 +190,17 @@ classdef Encoder < matlab.System
 			end
 
 			% Store the new values, and reset the delta time for the next iteration
-			this.posTicks = newPosTicks;
-			this.pos      = pos;
-			this.vel      = vel;
-			this.dt       = 0;
+			this.posTicks  = newPosTicks;
+			this.prevTicks = ticks;
+			this.pos       = pos;
+			this.vel       = vel;
+			this.dt        = 0;
 		end
 
 		% Simulink's update function. Called at each model iteration.
 		% See the top of this file for parameter documentation.
 		% This should be overrode and called by subclasses
-		function [pos, vel, isValid] = stepImpl(this, ticks, dt, calibTicks, calibVal, calibTrig, unitsPerTick, minPos, maxPos, minVel, maxVel)
+		function [pos, vel, isValid] = stepImpl(this, ticks, dt, calibTicks, calibVal, calibTrig, unitsPerTick, unwrapMod, minPos, maxPos, minVel, maxVel)
 			% Copy over the filter settings
 			this.filtMinPos = minPos;
 			this.filtMaxPos = maxPos;
@@ -206,11 +208,12 @@ classdef Encoder < matlab.System
 			this.filtMaxVel = maxVel;
 
 			% Copy over miscellaneous settings
+			this.encUnwrapMod    = unwrapMod;
 			this.posUnitsPerTick = unitsPerTick;
 
 			% Compute a new position iff calibration's already been done.
 			if this.calibrated
-				this.update(ticks, dt)
+				this.update(int64(ticks), dt)
 			end
 
 			% Run the calibration routine, if the calibration trigger has been specified
@@ -222,9 +225,6 @@ classdef Encoder < matlab.System
 			pos     = this.pos;
 			vel     = this.vel;
 			isValid = this.calibrated;
-
-			% Copy over the previous values for differentiation purposes
-			this.prevTicks = ticks;
 		end
 	end
 end
