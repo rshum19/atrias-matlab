@@ -128,42 +128,36 @@ classdef Encoder < matlab.System
 			pos = calibVal + this.posUnitsPerTick * double(ticks);
 		end
 
-		% Checks if we should calibrate on this cycle.
-		% This will only be called when calibTrig is true.
-		function out = shouldCalib(this, ticks, calibTicks, calibVal)
-			% Make sure we're not recalibrating unless configured to do so
-			if this.calibOnce && this.calibrated
-				out = false;
-				return
-			end
-
-			% Compute the position given the current tick count and calibration location.
-			% Assumes the encoder is within half a (modular) rotation of the calibration rotation.
-			calibState     = EncoderState;
-			calibState.pos = this.decodePos(this.unwrapTicks(ticks - calibTicks), calibVal);
-
-			% Calibrate iff the data is trustworthy.
-			% We ignore the velocity because we don't have enough information
-			% to compute it yet.
-			out = this.trustData(calibState);
+		% Computes the velocity. May be overridden if you'd like to use a different velocity
+		% calculation (which may be desireable for nonlinear encoders)
+		function vel = calcVel(this, newState)
+			vel = (newState.pos - this.curState.pos) / this.dt;
 		end
 
 		% Calibration function. Check if we need to calibrate,
 		% calibrate, then record that we've calibrated.
 		function calibrate(this, ticks, calibTicks, calibVal)
-			% Quit of we aren't calibrating this cycle
-			if ~this.shouldCalib(ticks, calibTicks, calibVal)
+			% Exit now if we've already calibrated and won't be calibrating again
+			if this.calibOnce && this.calibrated
 				return
 			end
 
-			% Compute the position relative to the calibration location
-			this.curState.posTicks = this.unwrapTicks(ticks - calibTicks);
+			% Compute the state after calibration. This is not assumed valid yet
+			calibState = EncoderState;
+			calibState.rawTicks = ticks;
+			calibState.posTicks = this.unwrapTicks(ticks - calibTicks);
+			calibState.pos      = this.decodePos(calibState.posTicks, calibVal);
+
+			% Calibrate if the new state is trustworthy
+			if ~this.trustData(calibState);
+				return
+			end
+
+			% Copy over the computed encoder state
+			this.curState = calibState;
 
 			% Copy over other calibration values
 			this.calibLoc = calibVal;
-
-			% Finish setting up the state.
-			this.curState.rawTicks = ticks;
 
 			% Record that calibration has occurred
 			this.calibrated = true;
@@ -183,7 +177,10 @@ classdef Encoder < matlab.System
 
 			% Compute the new position and velocity
 			newState.pos = this.decodePos(newState.posTicks, this.calibLoc);
-			newState.vel = (newState.pos - this.curState.pos) / this.dt;
+			newState.vel = this.calcVel(newState);
+
+			% Store the raw ticks value for trustData() and future use
+			newState.rawTicks = ticks;
 
 			% Check if it's acceptable. If not, quit early (throwing out the data)
 			if ~this.trustData(newState)
@@ -191,9 +188,8 @@ classdef Encoder < matlab.System
 			end
 
 			% Store the new values and reset the delta time for the next iteration
-			newState.rawTicks = ticks;
-			this.curState     = newState;
-			this.dt           = 0;
+			this.curState = newState;
+			this.dt       = 0;
 		end
 
 		% Simulink's update function. Called at each model iteration.
