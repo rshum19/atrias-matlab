@@ -12,7 +12,7 @@ classdef AbsEncoder < MedullaEncoder
 		calibVal = 0
 
 		% Unwrapping modulus
-		unwrapMod@int64 = int64(0)
+		unwrapMod = 0
 
 		% Drop repeated values
 		dropRepeatVals = false
