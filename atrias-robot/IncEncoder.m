@@ -6,7 +6,7 @@ classdef IncEncoder < MedullaEncoder
 		unitsPerTick = 0
 
 		% Unwrapping modulus
-		unwrapMod@int64 = int64(2^16)
+		unwrapMod = 2^16
 	end
 
 	methods (Access = protected)

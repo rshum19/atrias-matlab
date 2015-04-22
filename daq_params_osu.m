@@ -127,6 +127,7 @@ MOTOR_POSITION_LIMITS_LOWER = [HARD_MOTOR_POSITION_LIMITS_LOWER(1:2)+limExt; HAR
 fcut_smooth = 16*(2*pi); % Hz, low pass filter cutoff frequency for removing encoder dropouts
 fcut_unwrap = 8*(2*pi); % Hz, low pass filter cutoff frequency for unwrapping angles
 max_motor_velocity = 7.88; % rad/s
+max_hip_velocity   = 5;    % rad/s -- TODO: calculate the true value of this from the gear ratio and maximum motor RPM
 sensor_start_time = 8; % s
 % two pole low-pass filter params for velocity estimation
 fcut_velocity = 60*(2*pi); % Hz, low pass filter cutoff frequency for velocities
