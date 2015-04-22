@@ -7,7 +7,7 @@ classdef ElmoBypassEnc < MedullaEncoder
 		unitsPerTick = 0
 
 		% Medulla encoder unwrapping modulus
-		unwrapMod@int64 = int64(2^16)
+		unwrapMod = 2^16
 
 		% Encoder routed through Medulla
 		bypass@logical = false
