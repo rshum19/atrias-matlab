@@ -3,6 +3,16 @@ function [y, dy] = linear_interp(x0, y0, x, dx)
 %
 % Copyright 2015 Mikhail S. Jones
 
+  % Check size of reference trajectory
+  if ~isequal(numel(x0), numel(y0))
+    error('Reference trajectory dimensions must agree.');
+  end % if
+
+  % Check size of interpolation point
+  if ~isequal(numel(x), numel(dx), 1)
+    error('Interpolation point must be scalar.');
+  end % if
+
   % Limit range since curve fit is only valid within range
   x = clamp(x, x0(1), x0(end));
 

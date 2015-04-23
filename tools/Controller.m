@@ -8,19 +8,19 @@ classdef Controller < matlab.System
   end % properties
 
   properties
-    % PS3 Controller Joysticks
+    % PS3 controller joysticks
     ps3Axes@double = zeros(1,4)
-    % PS3 Controller Buttons
+    % PS3 controller buttons
     ps3Buttons@double = zeros(1,17)
-    % Torque Limit (N*m)
+    % Torque limit (N*m)
     u_lim@double = 600
   end % properties
 
   % PROTECTED PROPERTIES ==================================================
   properties (Access = protected)
-    % PS3 Controller
+    % PS3 controller object
     ps3@PS3Controller
-    % Run Time (s)
+    % Run time (s)
     runTime@double = 0
     % Controller run state
     isRun@logical = false
@@ -28,8 +28,8 @@ classdef Controller < matlab.System
 
   % CONSTANT PROPERTIES ===================================================
   properties (Constant = true)
-    % Sample Rate (s)
-    sampleRate = 0.001
+    % Sample interval time (s)
+    sampleInterval = 0.001
   end % properties
 
   % ABSTRACT METHODS ======================================================
@@ -87,7 +87,7 @@ classdef Controller < matlab.System
       % Run controller logic
       if obj.isRun
         % Update run time
-        obj.runTime = obj.runTime + obj.sampleRate;
+        obj.runTime = obj.runTime + obj.sampleInterval;
 
         % Run controller
         u = obj.userStep(q, dq);

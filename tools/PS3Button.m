@@ -14,8 +14,8 @@ classdef PS3Button < handle
 
     time@double = 0 % Time since initialization (s)
     timePressed@double = 0 % Time at which button was last pressed (s)
-    
-    sampleRate@double = 0.001 % Fixed sample time (s)
+
+    sampleInterval@double = 0.001 % Fixed sample interval time (s)
     clickInterval@double = 0.5 % Acceptable interval to count click (s)
   end % properties
 
@@ -25,11 +25,11 @@ classdef PS3Button < handle
     %UPDATE Update PS3 button object with controller data.
 
       % Update time
-      obj.time = obj.time + obj.sampleRate;
+      obj.time = obj.time + obj.sampleInterval;
 
       % Check if button was pressed
       obj.isPressed = ~obj.value && value;
-      
+
       % Check if button was released
       obj.isReleased = obj.value && ~value;
 
