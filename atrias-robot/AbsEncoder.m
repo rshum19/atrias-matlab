@@ -35,7 +35,10 @@ classdef AbsEncoder < MedullaEncoder
 			trust = false;
 
 			% Check for duplicate values, if enabled
-			if this.dropRepeatVals && (newState.rawTicks == this.curState.rawTicks)
+			% The funny double conversion and comparison is because
+			% equality comparison on int64's is not codegen-compatible
+			% (with a highly obfuscated error message).
+			if this.dropRepeatVals && (double(newState.rawTicks - this.curState.rawTicks) == 0)
 				return
 			end
 

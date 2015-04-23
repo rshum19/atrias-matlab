@@ -203,7 +203,7 @@ classdef Encoder < matlab.System
 			this.filtMaxVel = maxVel;
 
 			% Copy over miscellaneous settings
-			this.encUnwrapMod    = unwrapMod;
+			this.encUnwrapMod    = int64(unwrapMod);
 			this.posUnitsPerTick = unitsPerTick;
 
 			% Compute a new position iff calibration's already been done.
@@ -213,7 +213,7 @@ classdef Encoder < matlab.System
 
 			% Run the calibration routine, if the calibration trigger has been specified
 			if calibTrig
-				this.calibrate(int64(ticks), calibTicks, calibVal)
+				this.calibrate(int64(ticks), int64(calibTicks), calibVal)
 			end
 
 			% Set our outputs
