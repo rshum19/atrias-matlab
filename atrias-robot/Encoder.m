@@ -69,17 +69,15 @@ classdef Encoder < matlab.System
 		filtMinVel = -inf % Maximum acceptable velocity
 	end
 
-	methods
-		% Constructor; does some basic initialization
-		function this = Encoder
+	methods (Access = protected)
+		% Basic initialization
+		function setupImpl(this)
 			% Copy over the initial position and velocity values
 			this.curState     = EncoderState;
 			this.curState.pos = this.initPosOut;
 			this.curState.vel = this.initVelOut;
 		end
-	end
 
-	methods (Access = protected)
 		% Determine whether the given new position and velocity are "trustworthy"
 		function trust = trustData(this, newState)
 			% We'll have a series of guards that return early if they detect

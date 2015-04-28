@@ -1,7 +1,7 @@
 % Structure for encompassing the instantaneous state of
 % an encoder. Used to keep updating sane within Encoder
 
-classdef EncoderState < handle
+classdef EncoderState
 	properties
 		% Current position (output units)
 		pos = 0
