@@ -70,8 +70,8 @@ HIP_ABS_MAX_ENCODER_TICKS = 2^13 - 1; % Max value of the absolute hip encoder (1
 BOOM_MAX_ENCODER_TICKS = 2^17 - 1; % Max value of the absolute boom encoders (17-bit)
 
 % Calibrations done at OSU
-RIGHT_HIP_CALIB_VAL = 974;  % Calibration encoder value in ticks
-LEFT_HIP_CALIB_VAL = 7077;  % Calibration encoder value in ticks
+RIGHT_HIP_CALIB_VAL = 7028;  % Calibration encoder value in ticks
+LEFT_HIP_CALIB_VAL = 1032;  % Calibration encoder value in ticks
 RIGHT_HIP_CALIB_POS = -0.1066;  %Calibration angle in radians
 LEFT_HIP_CALIB_POS = 0.0422; %Calibration angle in radians
 MTR_MAX_CURRENT = 155.0; %Maximum motor current for scaling
@@ -86,11 +86,11 @@ HIP_MTR_MAX_TORQUE = MTR_HIP_MAX_CURRENT*HIP_MOTOR_CONSTANT*HIP_MTR_GEAR_RATIO;
 LEG_CURRENT_LIMIT = 100.0; % Maximum motor current for testing
 HIP_CURRENT_LIMIT = 60.0;  % Maximum motor current for testing
 
-% Right Leg (A/B flipped)
-LEG1_LEG_A_CALIB_VAL   = 265008108;      %Calibration encoder value in ticks
-LEG1_TRAN_A_CALIB_VAL  = 142498843;      %Calibration encoder value in ticks
-LEG1_LEG_B_CALIB_VAL   = 175255079;      %Calibration encoder value in ticks
-LEG1_TRAN_B_CALIB_VAL  = 142142037;      %Calibration encoder value in ticks
+% Right Leg (A/B flipped) (TRAN == motor)
+LEG1_LEG_A_CALIB_VAL   = 265016179;      %Calibration encoder value in ticks
+LEG1_TRAN_A_CALIB_VAL  = 142485911;      %Calibration encoder value in ticks
+LEG1_LEG_B_CALIB_VAL   = 175692059;      %Calibration encoder value in ticks
+LEG1_TRAN_B_CALIB_VAL  = 142166702;      %Calibration encoder value in ticks
 LEG1_LEG_A_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG1_LEG_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
@@ -98,11 +98,11 @@ LEG1_TRAN_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_MOTOR_A_DIRECTION = -1.0; 
 LEG1_MOTOR_B_DIRECTION = 1.0;
 
-% Left Leg (A/B flipped)
-LEG2_LEG_A_CALIB_VAL   = 264865073;      %Calibration encoder value in ticks
-LEG2_TRAN_A_CALIB_VAL  = 142296129;      %Calibration encoder value in ticks
-LEG2_LEG_B_CALIB_VAL   = 261922079;      %Calibration encoder value in ticks
-LEG2_TRAN_B_CALIB_VAL  = 142071402;      %Calibration encoder value in ticks
+% Left Leg (A/B flipped) (TRAN == motor)
+LEG2_LEG_A_CALIB_VAL   = 264841319;      %Calibration encoder value in ticks
+LEG2_TRAN_A_CALIB_VAL  = 142260475;      %Calibration encoder value in ticks
+LEG2_LEG_B_CALIB_VAL   = 261930868;      %Calibration encoder value in ticks
+LEG2_TRAN_B_CALIB_VAL  = 142165657;      %Calibration encoder value in ticks
 LEG2_LEG_A_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG2_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG2_LEG_B_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
@@ -141,5 +141,5 @@ INC_ENC_RAD_PER_TICK = 2*pi/14000/LEG_MTR_GEAR_RATIO;
 LEG_INC_ENCODER_DIRECTION_RIGHT_BACK = -1.0;
 LEG_INC_ENCODER_DIRECTION_RIGHT_FRONT = 1.0;
 LEG_INC_ENCODER_DIRECTION_LEFT_BACK = 1.0;
-LEG_INC_ENCODER_DIRECTION_LEFT_FRONT = -1.0;
+LEG_INC_ENCODER_DIRECTION_LEFT_FRONT = 1.0;
 MEDULLA_TIMER_FREQ = 32e6;
