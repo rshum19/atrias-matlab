@@ -146,7 +146,7 @@ classdef MikhailController < Controller
 
       userOut = [...
         ...obj.t, ...
-        obj.tmp, ...
+        ...obj.tmp, ...
         ...obj.x_est, obj.y_est, ...
         obj.dx_est, obj.dy_est, ...
         obj.dx_tgt, obj.dy_tgt];
@@ -313,25 +313,22 @@ classdef MikhailController < Controller
 
       switch obj.gaitMode
       case GaitMode.Stealth
-        % obj.l0_leg = 0.91;
-        obj.l_ret = 0.2;
-        % t_c = 1; dx_max = 0.25; dy_max = 0.1;
-      case GaitMode.Dynamic
-        % obj.l0_leg = 0.91;
-        obj.l_ret = 0.3;
-        % t_c = 2; dx_max = 0.5; dy_max = 0.2;
-      case GaitMode.Hop
-        % obj.l0_leg = 0.91;
+        obj.l0_leg = 0.91;
         obj.l_ret = 0.35;
-        % t_c = 2; dx_max = 0.5; dy_max = 0.2;
+        t_c = 2; dx_max = 1.8/2; dy_max = 0.2;
+      case GaitMode.Dynamic
+        obj.l0_leg = 0.91;
+        obj.l_ret = 0.35;
+        t_c = 2; dx_max = 2/2; dy_max = 0.2;
+      case GaitMode.Hop
+        obj.l0_leg = 0.91;
+        obj.l_ret = 0.35;
+        t_c = 2; dx_max = 2/2; dy_max = 0.2;
       otherwise % GaitMode.Normal
-        % obj.l0_leg = 0.91;
-        obj.l_ret = 0.25;
-        % t_c = 3; dx_max = 1; dy_max = 0.2;
+        obj.l0_leg = 0.9;
+        obj.l_ret = 0.35;
+        t_c = 2; dx_max = 1.8/2; dy_max = 0.2;
       end % switch
-
-      obj.l0_leg = 0.91;
-      t_c = 3; dx_max = 1; dy_max = 0.2;
 
       % Parse center of mass trimming
       if obj.ps3.up.isPressed
