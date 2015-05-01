@@ -198,7 +198,7 @@ classdef MikhailController < Controller
 
       % Stance leg push-off policy
       l_ext = clamp(...
-        obj.l_ext_gain*abs(obj.dx_tgt) + ...
+        obj.l_ext_gain*clamp(abs(obj.dx_tgt), 0, 0.2 + abs(obj.dx_est)) + ...
         0.04*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt) - ...
         0.04*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg), ...
         0, 0.97 - obj.l0_leg)*(sign(obj.dx_tgt) == sign(obj.dx_est));
@@ -231,7 +231,7 @@ classdef MikhailController < Controller
       u(leg_u(3:4)) = obj.s_leg*((q_sw - q(leg_m(3:4)))*obj.kp_leg + (dq_sw - dq(leg_m(3:4)))*obj.kd_leg);
 
       % Stance leg length policy (extend leg after mid stance linearly)
-      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 3*l_ext], s, 1);
+      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, 1);
 
       % Stance leg angle policy
       r_st = mean(q(leg_l(1:2)));
@@ -270,11 +270,6 @@ classdef MikhailController < Controller
 
       % Hip feed-forward torque for gravity compensation
       u(hip_u) = max(s_st, s_sw)*[1; -1]*obj.stanceLeg*obj.m_leg*obj.g*abs(l_h);
-      % TODO: think about force or acceleration based comp
-      % fzl = -4*obj.ks_leg*((q(leg_m(2)) - q(leg_l(2)))*cos(q(13) + q(leg_l(1))) - (q(leg_m(1)) - q(leg_l(1)))*cos(q(13) + q(leg_l(2))))/sin(q(leg_l(1)) - q(leg_l(2)));
-      % fzr = -4*obj.ks_leg*((q(leg_m(4)) - q(leg_l(4)))*cos(q(13) + q(leg_l(3))) - (q(leg_m(3)) - q(leg_l(3)))*cos(q(13) + q(leg_l(4))))/sin(q(leg_l(3)) - q(leg_l(4)));
-      % g = (fzl + fzr)/(obj.g*obj.m_total);
-      % u(hip_u) = [1; -1]*obj.stanceLeg*obj.m_leg*g*abs(l_h);
 
       % Swing leg hip PD controller
       u(hip_u(2)) = u(hip_u(2)) + ...
@@ -318,22 +313,25 @@ classdef MikhailController < Controller
 
       switch obj.gaitMode
       case GaitMode.Stealth
-        obj.l0_leg = 0.93;
-        obj.l_ret = 0.12;
-        t_c = 1; dx_max = 0.1; dy_max = 0.1;
-      case GaitMode.Dynamic
-        obj.l0_leg = 0.91;
-        obj.l_ret = 0.3;
-        t_c = 3; dx_max = 0.5; dy_max = 0.2;
-      % case GaitMode.Hop
-      %   obj.l0_leg = 0.91;
-      %   obj.l_ret = 0.15;
-      %   t_c = 1; dx_max = 0.2; dy_max = 0.2;
-      otherwise % GaitMode.Normal
-        obj.l0_leg = 0.91;
+        % obj.l0_leg = 0.91;
         obj.l_ret = 0.2;
-        t_c = 3; dx_max = 1; dy_max = 0.2;
+        % t_c = 1; dx_max = 0.25; dy_max = 0.1;
+      case GaitMode.Dynamic
+        % obj.l0_leg = 0.91;
+        obj.l_ret = 0.3;
+        % t_c = 2; dx_max = 0.5; dy_max = 0.2;
+      case GaitMode.Hop
+        % obj.l0_leg = 0.91;
+        obj.l_ret = 0.35;
+        % t_c = 2; dx_max = 0.5; dy_max = 0.2;
+      otherwise % GaitMode.Normal
+        % obj.l0_leg = 0.91;
+        obj.l_ret = 0.25;
+        % t_c = 3; dx_max = 1; dy_max = 0.2;
       end % switch
+
+      obj.l0_leg = 0.91;
+      t_c = 3; dx_max = 1; dy_max = 0.2;
 
       % Parse center of mass trimming
       if obj.ps3.up.isPressed
@@ -366,7 +364,7 @@ classdef MikhailController < Controller
         dx_cmd = 0; dy_cmd = 0;
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = 0.25*(floor(obj.runTime/5));
-        dx_cmd = 2.5*(obj.runTime >= 2);
+        dx_cmd = 2.5*(obj.runTime >= 2.5);
       end % if
 
       % Compute smoothing factor

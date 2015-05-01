@@ -72,10 +72,10 @@ i_lowerleg_products = [0 0 0];
 l_lowerleg = 0.49;
 
 % Foot
-% d_foot_point_front = [0.06350 -0.02515 0];
-% d_foot_point_back = [-0.06350 -0.02515 0];
-d_foot_point_front = [0.10162 -0.02515 0];
-d_foot_point_back = [-0.10162 -0.02515 0];
+d_foot_point_front = [0.06350 -0.02515 0];
+d_foot_point_back = [-0.06350 -0.02515 0];
+% d_foot_point_front = [0.10162 -0.02515 0];
+% d_foot_point_back = [-0.10162 -0.02515 0];
 m_foot = 0.0857;
 com_foot = [0 -0.00959 0];
 i_foot_moments = [0.00001 0.00006 0.00006];
