@@ -361,7 +361,7 @@ classdef MikhailController < Controller
         dx_cmd = 0; dy_cmd = 0;
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = 0.25*(floor(obj.runTime/5));
-        dx_cmd = 2.5*(obj.runTime >= 2.5);
+        dx_cmd = 2*(obj.runTime >= 2.5);
       end % if
 
       % Compute smoothing factor
