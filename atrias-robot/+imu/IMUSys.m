@@ -1,5 +1,3 @@
-% TODO: Try re-inserting the params variable, but initialize it in the constructor.
-
 classdef IMUSys < handle
 	methods
 		% Constructor -- does some basic init that can't directly be done to the properties themselves
@@ -40,10 +38,14 @@ classdef IMUSys < handle
 				% Show that we've stopped detecting motion.
 				this.fail_reas = imu.IMUFailReason.NONE;
 
-				% Switch to align if it's been long enough
+				% Switch to align if it's been long enough.
+				% We need to reset the alignment state in case
+				% an alignment had already begun and was
+				% interrupted.
 				if this.align_reset_counter >= this.align_reset_wait
-					this.state     = imu.IMUSysState.ALIGN;
+					this.state = imu.IMUSysState.ALIGN;
 					this.align_ticks = 0;
+					this.align_gm(:) = 0;
 				end
 			end
 		end

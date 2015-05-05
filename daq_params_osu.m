@@ -36,6 +36,7 @@ gui_enable_cmd  = 0; % Whether to enable the robot
 gui_disable_cmd = 0; % Whether to disable the robot
 gui_reset_cmd   = 0; % Whether to reset the robot (after a E-Stop)
 gui_estop_cmd   = 0; % Whether to E-Stop the robot
+imu_reset_cmd   = 0; % Whether to reset the IMU system
 
 % Low-level Medulla parameters
 MEDULLA_ADC_OFFSET_COUNTS = 172;  % Ticks
