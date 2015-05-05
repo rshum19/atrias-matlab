@@ -7,13 +7,13 @@ classdef TorqueController < Controller
   methods
     function userSetup(obj)
     %USERSETUP Initialize system object.
-
+    
     end % userSetup
 
     function userOut = userOutput(obj)
     %USEROUTPUT User output function.
 
-      % Null ouutput
+      % Null output
       userOut = 0;
       
       % Force controller to run
