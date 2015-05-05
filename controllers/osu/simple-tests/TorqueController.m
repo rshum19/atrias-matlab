@@ -13,7 +13,11 @@ classdef TorqueController < Controller
     function userOut = userOutput(obj)
     %USEROUTPUT User output function.
 
-      userOut = [];
+      % Null ouutput
+      userOut = 0;
+      
+      % Force controller to run
+      obj.isRun = true;
     end % userOutput
 
     function u = userStep(obj, q, dq)
@@ -23,26 +27,25 @@ classdef TorqueController < Controller
       u_r_B = 0; u_r_A = 0; u_r_h = 0; u_l_B = 0; u_l_A = 0; u_l_h = 0;
 
       % Get selected motor from PS3 controller trigger button combos
-      combo = num2str([obj.ps3.l1.value obj.ps3.l2.value obj.ps3.r1.value obj.ps3.r2.value]);
+      combo = [obj.ps3.l1.value, obj.ps3.l2.value, obj.ps3.r1.value, obj.ps3.r2.value];
 
       % Get torque command from PS3 left joy stick
-      u_cmd = obj.ps3.leftStickY;
+      u_cmd = obj.u_lim*obj.ps3.leftStickY;
 
       % Interpret motor torque command from button combo
-      switch combo
-      case '1 0 0 0'
+      if all(combo == [1 0 0 0])
         u_l_A = u_cmd;
-      case '0 1 0 0'
+      elseif all(combo == [0 1 0 0])
         u_l_B = u_cmd;
-      case '1 1 0 0'
+      elseif all(combo == [1 1 0 0])
         u_l_h = u_cmd;
-      case '0 0 1 0'
+      elseif all(combo == [0 0 1 0])
         u_r_A = u_cmd;
-      case '0 0 0 1'
+      elseif all(combo == [0 0 0 1])
         u_r_B = u_cmd;
-      case '0 0 1 1'
+      elseif all(combo == [0 0 1 1])
         u_r_h = u_cmd;
-      end % switch
+      end % if
 
       % Set motor torque command vector
       u = [u_r_B u_r_A u_r_h u_l_B u_l_A u_l_h];
