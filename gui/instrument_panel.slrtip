@@ -1211,6 +1211,17 @@
       <Property name="Size">603, 275</Property>
     </Object>
     <Object type="System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="GroupBox11" children="Controls">
+      <Object type="MW.Instruments.SwitchLED, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="SwitchLED4" children="Controls">
+        <Property name="BindingSrcPath">/imu_reset_cmd</Property>
+        <Property name="TargetName">TargetPC1</Property>
+        <Property name="BindingSrcType">Parameter</Property>
+        <Property name="Text">Reset</Property>
+        <Property name="MomentaryStyle">Simple</Property>
+        <Property name="Size">62, 34</Property>
+        <Property name="Font">Segoe UI, 9pt</Property>
+        <Property name="Location">193, 122</Property>
+        <Property name="Name">SwitchLED4</Property>
+      </Object>
       <Object type="MW.Instruments.NumericDisplay, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="NumericDisplay220" children="Controls">
         <Property name="BindingSrcType">Signal</Property>
         <Property name="OutputValue">0</Property>
@@ -1223,7 +1234,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">270, 86</Property>
+        <Property name="Location">270, 59</Property>
         <Property name="Name">NumericDisplay220</Property>
       </Object>
       <Object type="MW.Instruments.NumericDisplay, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="NumericDisplay221" children="Controls">
@@ -1238,7 +1249,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">270, 62</Property>
+        <Property name="Location">270, 35</Property>
         <Property name="Name">NumericDisplay221</Property>
       </Object>
       <Object type="MW.Instruments.NumericDisplay, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="NumericDisplay222" children="Controls">
@@ -1253,7 +1264,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">270, 110</Property>
+        <Property name="Location">270, 83</Property>
         <Property name="Name">NumericDisplay222</Property>
       </Object>
       <Object type="System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="Label142" children="Controls">
@@ -1262,7 +1273,7 @@
         <Property name="UseCompatibleTextRendering">True</Property>
         <Property name="Font">Segoe UI, 8pt, style=Bold</Property>
         <Property name="ForeColor">Black</Property>
-        <Property name="Location">270, 40</Property>
+        <Property name="Location">270, 13</Property>
         <Property name="Name">Label142</Property>
         <Property name="Size">85, 19</Property>
       </Object>
@@ -1272,7 +1283,7 @@
         <Property name="UseCompatibleTextRendering">True</Property>
         <Property name="Font">Segoe UI, 8pt, style=Bold</Property>
         <Property name="ForeColor">Black</Property>
-        <Property name="Location">154, 63</Property>
+        <Property name="Location">154, 36</Property>
         <Property name="Name">Label143</Property>
         <Property name="Size">33, 23</Property>
       </Object>
@@ -1288,7 +1299,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">193, 86</Property>
+        <Property name="Location">193, 59</Property>
         <Property name="Name">NumericDisplay223</Property>
       </Object>
       <Object type="MW.Instruments.NumericDisplay, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="NumericDisplay224" children="Controls">
@@ -1303,7 +1314,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">193, 62</Property>
+        <Property name="Location">193, 35</Property>
         <Property name="Name">NumericDisplay224</Property>
       </Object>
       <Object type="MW.Instruments.NumericDisplay, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="NumericDisplay225" children="Controls">
@@ -1318,7 +1329,7 @@
         </Property>
         <Property name="Size">72, 24</Property>
         <Property name="Font">Segoe UI, 8pt</Property>
-        <Property name="Location">193, 110</Property>
+        <Property name="Location">193, 83</Property>
         <Property name="Name">NumericDisplay225</Property>
       </Object>
       <Object type="System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="Label144" children="Controls">
@@ -1327,7 +1338,7 @@
         <Property name="UseCompatibleTextRendering">True</Property>
         <Property name="Font">Segoe UI, 8pt, style=Bold</Property>
         <Property name="ForeColor">Black</Property>
-        <Property name="Location">187, 40</Property>
+        <Property name="Location">187, 13</Property>
         <Property name="Name">Label144</Property>
         <Property name="Size">77, 19</Property>
       </Object>
@@ -1337,7 +1348,7 @@
         <Property name="UseCompatibleTextRendering">True</Property>
         <Property name="Font">Segoe UI, 8pt, style=Bold</Property>
         <Property name="ForeColor">Black</Property>
-        <Property name="Location">154, 87</Property>
+        <Property name="Location">154, 60</Property>
         <Property name="Name">Label145</Property>
         <Property name="Size">32, 23</Property>
       </Object>
@@ -1347,7 +1358,7 @@
         <Property name="UseCompatibleTextRendering">True</Property>
         <Property name="Font">Segoe UI, 8pt, style=Bold</Property>
         <Property name="ForeColor">Black</Property>
-        <Property name="Location">154, 111</Property>
+        <Property name="Location">154, 84</Property>
         <Property name="Name">Label146</Property>
         <Property name="Size">33, 23</Property>
       </Object>
