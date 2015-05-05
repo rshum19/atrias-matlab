@@ -56,8 +56,8 @@ function run_ps3(isTest)
   % Loop while in run state
   while isRun
     % Query joystick
-    a = axis(vrj,1:4);
-    b = double(button(vrj,1:17));
+    a = axis(vrj, 1:4);
+    b = double(button(vrj, 1:17));
 
     % Update plots
     set(h1, 'XData', a(1), 'YData', -a(2));

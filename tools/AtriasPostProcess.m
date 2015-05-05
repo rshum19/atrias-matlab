@@ -161,28 +161,6 @@ classdef AtriasPostProcess < Atrias
       legend('show')
     end % plotMotorVelocities
 
-    function plotToeSensors(obj)
-      % Create figure window and set default parameters
-      figure;
-
-      % Set plot properties
-      hold on; grid on; box on;
-
-      % Plot
-      if obj.plotLeftLeg
-        plot(obj.time, obj.left.toe, 'DisplayName', 'Left Leg Toe Sensor');
-      end
-      if obj.plotRightLeg
-        plot(obj.time, obj.right.toe, 'DisplayName', 'Right Leg Toe Sensor');
-      end
-
-      % Set plot properties
-      title('Toe Sensors');
-      xlabel('Time [s]');
-      ylabel('Value');
-      legend('show')
-    end % plotToeSensors
-
     function plotLegSpringTorques(obj)
       % Create figure window and set default parameters
       figure;

@@ -57,15 +57,13 @@ classdef Atrias < handle
         q = varargin{1}(:,1:13);
         dq = varargin{1}(:,14:26);
         u = varargin{1}(:,27:32);
-        toe = varargin{1}(:,33:34);
         % If more data is available, save it
-        if size(varargin{1},2) > 34
-          obj.controllerData = varargin{1}(:,35:end);
+        if size(varargin{1},2) > 32
+          obj.controllerData = varargin{1}(:,33:end);
         end
       case 3 % For use in controllers
         q = varargin{1};
         dq = varargin{2};
-        toe = varargin{3};
         u = [0; 0; 0; 0; 0; 0];
       otherwise
         error('Invalid number of input arguments.')
@@ -74,8 +72,8 @@ classdef Atrias < handle
       % Set object properties
       obj.q = q;
       obj.dq = dq;
-      obj.left  = AtriasLeg(obj, q(:,[5:8 10]), dq(:,[5:8 10]), u(:,4:6), toe(:,2));
-      obj.right = AtriasLeg(obj, q(:,[1:4 9]), dq(:,[1:4 9]), u(:,1:3), toe(:,1));
+      obj.left  = AtriasLeg(obj, q(:,[5:8 10]), dq(:,[5:8 10]), u(:,4:6));
+      obj.right = AtriasLeg(obj, q(:,[1:4 9]), dq(:,[1:4 9]), u(:,1:3));
       obj.boomRollAngle = q(:,11);
       obj.boomRollVelocity = dq(:,11);
       obj.boomYawAngle = q(:,12);

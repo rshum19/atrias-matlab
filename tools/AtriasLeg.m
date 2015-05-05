@@ -24,9 +24,6 @@ classdef AtriasLeg < handle
     motorTorqueB@double vector
     motorTorqueA@double vector
     hipTorque@double vector
-
-    % Toe data
-    toe@double vector
   end % properties
 
   % CONSTANT PROPERTIES ===================================================
@@ -57,7 +54,7 @@ classdef AtriasLeg < handle
 
   % PUBLIC METHODS ========================================================
   methods
-    function obj = AtriasLeg(atrias, q, dq, u, toe)
+    function obj = AtriasLeg(atrias, q, dq, u)
     %ATRIASLEG ATRIAS leg data processing toolkit constructor.
 
       % Set position state properties
@@ -73,9 +70,6 @@ classdef AtriasLeg < handle
       obj.legVelocityA = dq(:,3);
       obj.motorVelocityA = dq(:,4);
       obj.hipVelocity = dq(:,5);
-
-      % Set toe sensor property
-      obj.toe = toe;
 
       % Set control input properties
       obj.motorTorqueB = u(:,1);
