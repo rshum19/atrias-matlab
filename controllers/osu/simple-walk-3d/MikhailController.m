@@ -314,20 +314,20 @@ classdef MikhailController < Controller
       switch obj.gaitMode
       case GaitMode.Stealth
         obj.l0_leg = 0.91;
-        obj.l_ret = 0.35;
-        t_c = 2; dx_max = 1.8/2; dy_max = 0.2;
+        obj.l_ret = 0.15;
+        t_c = 2; dx_max = 0.2; dy_max = 0.2;
       case GaitMode.Dynamic
         obj.l0_leg = 0.91;
-        obj.l_ret = 0.35;
-        t_c = 2; dx_max = 2/2; dy_max = 0.2;
+        obj.l_ret = 0.3;
+        t_c = 2; dx_max = 1; dy_max = 0.2;
       case GaitMode.Hop
         obj.l0_leg = 0.91;
         obj.l_ret = 0.35;
-        t_c = 2; dx_max = 2/2; dy_max = 0.2;
+        t_c = 2; dx_max = 1; dy_max = 0.2;
       otherwise % GaitMode.Normal
-        obj.l0_leg = 0.9;
-        obj.l_ret = 0.35;
-        t_c = 2; dx_max = 1.8/2; dy_max = 0.2;
+        obj.l0_leg = 0.91;
+        obj.l_ret = 0.2;
+        t_c = 2; dx_max = 1; dy_max = 0.2;
       end % switch
 
       % Parse center of mass trimming
