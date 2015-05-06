@@ -27,7 +27,7 @@ classdef Controller < matlab.System
   end % properties
 
   % CONSTANT PROPERTIES ===================================================
-  properties (Constant = true)
+  properties (Constant = true, Hidden = true)
     % Sample interval time (s)
     sampleInterval = 0.001
   end % properties
