@@ -223,7 +223,7 @@ classdef MikhailController < Controller
       ds = 1/obj.t_step;
 
       % Swing leg length policy
-      [l_sw, dl_sw] = cubic_interp([0, 0.5, 1], [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], [0, 0, 0], s, (1-s)*ds);
+      [l_sw, dl_sw] = cubic_interp([0, 0.5, 1], [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], [0, 0, 0], s, 1);
 
       % Swing leg angle policy
       [x_sw, dx_sw] = cubic_interp([0, 0.7], [obj.x_sw_last, l_step], [-obj.dx_est, 0], s, ds);
@@ -238,7 +238,7 @@ classdef MikhailController < Controller
       u(leg_u(3:4)) = obj.s_leg*((q_sw - q(leg_m(3:4)))*obj.kp_leg + (dq_sw - dq(leg_m(3:4)))*obj.kd_leg);
 
       % Stance leg length policy (extend leg after mid stance linearly)
-      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, ds);
+      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, 0);
 
       % Stance leg angle policy
       r_st = mean(q(leg_l(1:2)));
