@@ -4315,6 +4315,17 @@
       <Property name="Size">337, 204</Property>
     </Object>
     <Object type="System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="GroupBox8" children="Controls">
+      <Object type="MW.Instruments.SwitchLED, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="SwitchLED5" children="Controls">
+        <Property name="BindingSrcPath">/gui_exit_cmd</Property>
+        <Property name="TargetName">TargetPC1</Property>
+        <Property name="BindingSrcType">Parameter</Property>
+        <Property name="Text">Stop Model</Property>
+        <Property name="MomentaryStyle">Simple</Property>
+        <Property name="Size">62, 50</Property>
+        <Property name="Font">Segoe UI, 9pt</Property>
+        <Property name="Location">77, 301</Property>
+        <Property name="Name">SwitchLED5</Property>
+      </Object>
       <Object type="MW.Instruments.LED, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="LED64" children="Controls">
         <Property name="OutputValue">0</Property>
         <Property name="BindingSrcObject" />
@@ -4451,7 +4462,7 @@
       <Property name="Font">Segoe UI, 10pt, style=Bold</Property>
       <Property name="Location">2, 2</Property>
       <Property name="Name">GroupBox8</Property>
-      <Property name="Size">217, 293</Property>
+      <Property name="Size">217, 354</Property>
     </Object>
     <Property name="BackColor">Control</Property>
     <Property name="ClientSize">1920, 1200</Property>
