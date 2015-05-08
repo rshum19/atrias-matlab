@@ -11,9 +11,17 @@ classdef MikhailController < Controller
 
   properties
     % Nominal Leg Length (m)
-    l0_leg@double = 0.91
+    l0_leg@double = 0.92
     % Swing Leg Retraction (m)
-    l_ret@double = 0.2
+    l_ret@double = 0.25
+    % Step duration gain
+    t_gain@double = 0
+    % Velocity scaling
+    s_vel@double = [0.35 1 0]
+    % Leg Extension Y Velocity Error P gain
+    l_ext_dy_err_p_gain = 0
+    % Leg Extension Y Velocity Error D gain
+    l_ext_dy_err_d_gain = 0
     
     % Time invariant trigger threshold
     timeThres@double = 1
@@ -39,8 +47,6 @@ classdef MikhailController < Controller
     tau_c@double = 0.12
     % Step Duration (s)
     t_step@double = 0.35
-    % Leg Extension Offset (m)
-    l0_ext@double = 0.0
     % Leg Extension Gain (m)
     l_ext_gain@double = 0.02
     % X Velocity Feed-Forward Gain
@@ -76,13 +82,13 @@ classdef MikhailController < Controller
     % Current stance leg (1 == Left, -1 == Right)
     stanceLeg@double = 1
 %     % Nominal Leg Length (m)
-%     l0_leg@double = 0.91
+%     l0_leg@double = 0.92
 %     % Swing Leg Retraction (m)
-%     l_ret@double = 0.2
+%     l_ret@double = 0.25
     % X Center of Mass Offset (m)
     x_offset@double = 0
     % Y Center of Mass Offset (m)
-    y_offset@double = 0.075
+    y_offset@double = 0.065
     % Stance toe X position of last step (m)
     x_st_last@double = 0
     % Swing toe X position of last step (m)
@@ -129,7 +135,7 @@ classdef MikhailController < Controller
     %USERSETUP Initialize system object.
 
       % Reset objects
-      obj.gaitMode = GaitMode.Normal;
+      obj.gaitMode = GaitMode.Cross;
 
       % Reset parameters
       obj.t = 0;
@@ -204,29 +210,30 @@ classdef MikhailController < Controller
       obj.y_est = obj.y_est + obj.dy_est*obj.sampleInterval;
 
       % Stance leg push-off policy
-      l_ext = obj.l0_ext + clamp(...
+      l_ext = clamp(...
         obj.l_ext_gain*clamp(abs(obj.dx_tgt), 0, 0.2 + abs(obj.dx_est)) + ...
-        0.04*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt) - ...
-        0.04*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg), ...
+        obj.l_ext_dy_err_p_gain*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt) + ...
+        obj.l_ext_dy_err_d_gain*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg), ...
         0, 0.97 - obj.l0_leg)*(sign(obj.dx_tgt) == sign(obj.dx_est));
 
       % Step length policy
       l_step = clamp(...
         obj.dx_est*obj.dx_gain + ...
         (obj.dx_est - obj.dx_tgt)*obj.dx_err_p_gain + ...
-        (obj.dx_est - obj.dx_est_e)*obj.dx_err_d_gain - ...
-        l_t*sin(q(13)) - obj.x_offset*cos(q(13))*obj.m_torso/obj.m_total, ...
+        (obj.dx_est - obj.dx_est_e)*obj.dx_err_d_gain + ...
+        l_t*sin(q(13)) + obj.x_offset*cos(q(13))*obj.m_torso/obj.m_total, ...
         -0.5, 0.5);
 
       % Define a time variant parameter
-      s = clamp(obj.t/obj.t_step, 0, Inf);
-      ds = 1/obj.t_step;
+      t_step = obj.t_step + obj.t_gain*abs(obj.dx_tgt);
+      s = clamp(obj.t/t_step, 0, Inf);
+      ds = 1/t_step;
 
       % Swing leg length policy
-      [l_sw, dl_sw] = cubic_interp([0, 0.5, 1], [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], [0, 0, 0], s, 1);
+      [l_sw, dl_sw] = cubic_interp([0, 0.5, 1], [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], [0, 0, 0], s, obj.s_vel(1)*ds);
 
       % Swing leg angle policy
-      [x_sw, dx_sw] = cubic_interp([0, 0.7], [obj.x_sw_last, l_step], [-obj.dx_est, 0], s, ds);
+      [x_sw, dx_sw] = cubic_interp([0, 0.7], [obj.x_sw_last, l_step], [-obj.dx_est, 0], s, obj.s_vel(2)*ds);
       r_sw = pi - real(asin(x_sw/l_sw)) - q(13);
       dr_sw = - dq(13) - (dx_sw/l_sw - (dl_sw*x_sw)/l_sw^2)/sqrt(1 - x_sw^2/l_sw^2);
 
@@ -238,7 +245,7 @@ classdef MikhailController < Controller
       u(leg_u(3:4)) = obj.s_leg*((q_sw - q(leg_m(3:4)))*obj.kp_leg + (dq_sw - dq(leg_m(3:4)))*obj.kd_leg);
 
       % Stance leg length policy (extend leg after mid stance linearly)
-      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, 0);
+      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, obj.s_vel(3)*ds);
 
       % Stance leg angle policy
       r_st = mean(q(leg_l(1:2)));
@@ -267,8 +274,8 @@ classdef MikhailController < Controller
         l_t*sin(q(11)) - obj.y_offset*cos(q(11))*obj.m_torso/obj.m_total;
 
       % Inverse kinematics
-      l_l = cos(q(leg_l(2))/2 - q(leg_l(1))/2);
-      dl_l = -sin(q(leg_l(1))/2 - q(leg_l(2))/2)*(dq(leg_l(1))/2 - q(leg_l(2))/2);
+      l_l = cos(q(leg_l(4))/2 - q(leg_l(3))/2);
+      dl_l = -sin(q(leg_l(3))/2 - q(leg_l(4))/2)*(dq(leg_l(3))/2 - q(leg_l(4))/2);
       L = sqrt(l_l^2 + l_h^2);
       q1 = asin(d/L);
       q2 = asin(-l_h/L);
@@ -311,30 +318,22 @@ classdef MikhailController < Controller
     function parsePS3Controller(obj)
     %PARSEPS3CONTROLLER
 
-%       % Parse gait specific tweaks
-%       if obj.ps3.cross.isPressed; obj.gaitMode = GaitMode.Stealth;
-%       elseif obj.ps3.circle.isPressed; obj.gaitMode = GaitMode.Normal;
-%       elseif obj.ps3.triangle.isPressed; obj.gaitMode = GaitMode.Dynamic;
-%       elseif obj.ps3.square.isPressed; obj.gaitMode = GaitMode.Hop;
-%       end % if
-% 
+      % Parse gait specific tweaks
+      if obj.ps3.cross.isPressed; obj.gaitMode = GaitMode.Cross;
+      elseif obj.ps3.circle.isPressed; obj.gaitMode = GaitMode.Circle;
+      elseif obj.ps3.triangle.isPressed; obj.gaitMode = GaitMode.Triangle;
+      elseif obj.ps3.square.isPressed; obj.gaitMode = GaitMode.Square;
+      end % if
+
 %       switch obj.gaitMode
-%       case GaitMode.Stealth
-%         obj.l0_leg = 0.91;
-%         obj.l_ret = 0.15;
-%         t_c = 2; dx_max = 0.2; dy_max = 0.2;
-%       case GaitMode.Dynamic
-%         obj.l0_leg = 0.91;
-%         obj.l_ret = 0.3;
-%         t_c = 2; dx_max = 1; dy_max = 0.2;
-%       case GaitMode.Hop
-%         obj.l0_leg = 0.91;
-%         obj.l_ret = 0.35;
-%         t_c = 2; dx_max = 1; dy_max = 0.2;
-%       otherwise % GaitMode.Normal
-%         obj.l0_leg = 0.91;
-%         obj.l_ret = 0.2;
-%         t_c = 2; dx_max = 1; dy_max = 0.2;
+%       case GaitMode.Cross
+%         % Custom tuning mode
+%       case GaitMode.Circle
+%         % Robust stand mode
+%       case GaitMode.Triangle
+%         % Walk/Run mode
+%       otherwise % GaitMode.Square
+%         % Nothing
 %       end % switch
 
       t_c = 2; dx_max = 1; dy_max = 0.2;
@@ -370,7 +369,7 @@ classdef MikhailController < Controller
         dx_cmd = 0; dy_cmd = 0;
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = 0.25*(floor(obj.runTime/5));
-        % dx_cmd = 2*(obj.runTime >= 10);
+        dx_cmd = -1.5*(obj.runTime >= 5);
       end % if
 
       % Compute smoothing factor
