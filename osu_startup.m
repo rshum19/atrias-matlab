@@ -1,5 +1,8 @@
 %OSU_STARTUP Oregon State University MATLAB startup script.
 
+% Create the target object
+tg = slrt;
+
 % Location of current folder on the file system
 currentFolder = fileparts(mfilename('fullpath'));
 
