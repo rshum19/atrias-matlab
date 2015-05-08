@@ -53,6 +53,14 @@ function run_ps3(isTest)
     'LL Trigger' 'RL Trigger' 'LU Trigger' 'RU Trigger' ...
     'Triangle' 'Circle' 'Cross' 'Square' 'PS3'};
 
+  % This is used to set model parameters in the main loop
+  tg = slrt;
+
+  % Correct the sample time
+  if ~isTest
+    fix_sampletime
+  end
+
   % Loop while in run state
   while isRun
     % Query joystick
@@ -67,8 +75,8 @@ function run_ps3(isTest)
     % Check test state
     if ~isTest
       % Pass joystick data to Simulink model
-      set_param([model '/Controller'], 'ps3Axes', mat2str(a));
-      set_param([model '/Controller'], 'ps3Buttons', mat2str(b));
+      tg.setparam('Controller/ps3Axes', a);
+      tg.setparam('Controller/ps3Buttons', b);
     end % if
 
     % Flush system queue
