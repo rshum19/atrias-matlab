@@ -1,4 +1,4 @@
-classdef  controller3DwalkNrunNhop3 < Controller
+classdef  controller3DwalkNrunNhop4 < Controller
     % Siavash's controller.
     %
     % Copyright 2015 Siavash Rezazadeh
@@ -21,12 +21,14 @@ classdef  controller3DwalkNrunNhop3 < Controller
         kI@double=0;
         kD@double=0;
         
-        u0hip=0;
+        u0hip@double=0;
         
         xss@double=0;
         yss@double=.16;
         
-        ys0v=0;
+        ys0v@double=0;
+        
+        RightA_stick@double=35;
         
         k_fp_h_v@double=.2;
         k_fp_l_v@double=.2;
@@ -308,7 +310,7 @@ classdef  controller3DwalkNrunNhop3 < Controller
             lpo=clamp(lpo,0,.07);
 
             
-            lpo_v=clamp(.015*abs(obj.dx_des)*(sign(obj.dx)==sign(obj.dx_des))+.05*(-1)^obj.RefLeg*sign(obj.dy)*(abs(obj.dy)-.4)*(abs(obj.dy)>.4),-.01,.07);
+            lpo_v=clamp(.01*abs(obj.dx_des)*(sign(obj.dx)==sign(obj.dx_des))+.05*(-1)^obj.RefLeg*sign(obj.dy)*(abs(obj.dy)-.4)*(abs(obj.dy)>.4),-.01,.07);
 
 
             dx_des0=obj.dx_des;
@@ -877,7 +879,7 @@ classdef  controller3DwalkNrunNhop3 < Controller
                         x_f2f_d=step_max*sign(x_f2f_d);
                     end
                     
-                     lmin=clamp(l0-obj.lret-.05*abs(obj.dx_des)+0*1.7*lpo,.55,.8);
+                     lmin=clamp(l0-obj.lret-.04*abs(obj.dx_des)+0*1.7*lpo,.55,.8);
                     
                     
 %                     l0sw=clamp(l0sw+.2*(abs(obj.dx)-abs(obj.dx_des))*(abs(obj.dx)>abs(obj.dx_des)),l0sw,.96);
@@ -901,8 +903,8 @@ classdef  controller3DwalkNrunNhop3 < Controller
                     
                     q21d=clamp(q21d,acos(.97),acos(.85));
                     
-                    uT=clamp(ddqTc+k_torso*kdT*(dqTc-dpitch)+k_torso*kpT*(qTc-pitch),-.7*fc*F_l,.7*fc*F_l);%+(u3+u4)/n/IT;
-                    uT2=clamp(ddqTc+k_torso*kdT*(dqTc-dpitch)+k_torso*kpT*(qTc-pitch),-.7*fc2*F_l2,.7*fc2*F_l2);%+(u3+u4)/n/IT;
+                    uT=clamp(ddqTc+k_torso*kdT*(dqTc-dpitch)+1.5*k_torso*kpT*(qTc-pitch),-.7*fc*F_l,.7*fc*F_l);%+(u3+u4)/n/IT;
+                    uT2=clamp(ddqTc+k_torso*kdT*(dqTc-dpitch)+1.5*k_torso*kpT*(qTc-pitch),-.7*fc2*F_l2,.7*fc2*F_l2);%+(u3+u4)/n/IT;
                     
                     
 %                     [q22d,dq22d]=spline3(t,.01*obj.T,obj.q22d0,0,-uT/obj.k+(theta1+theta2)/2,(dtheta1+dtheta2)/2);
@@ -1145,10 +1147,10 @@ classdef  controller3DwalkNrunNhop3 < Controller
             % Limit absolute torque commands
             u = clamp(u, -obj.u_lim, obj.u_lim);
             
-            if obj.RefLeg==RIGHT
-                u(1)=u(1)+obj.RightA_stick*atan(100*(q22d-q21d-thetam1))/(pi/2);
+            if obj.RefLeg==obj.RIGHT
+                u(1)=u(1)+obj.RightA_stick*atan(300*(q22d-q21d-thetam1))/(pi/2);
             else
-                u(1)=u(1)+obj.RightA_stick*atan(100*(q24d-q23d-thetam3))/(pi/2);
+                u(1)=u(1)+obj.RightA_stick*atan(300*(q24d-q23d-thetam3))/(pi/2);
             end
             
             obj.out=[obj.x obj.y vG(1:2)' q21d  q22d  q23d ...  %1-10
@@ -1159,7 +1161,7 @@ classdef  controller3DwalkNrunNhop3 < Controller
 %                 q24d dq24d q_hip_d x_f2f_t obj.y_fp fc fc2 t obj.T...          %11-19
 %                 obj.RefLeg obj.dx_uf obj.dy_uf obj.dx obj.dy e_h deltaq1 qh1d0... %20-27
 %                 obj.dx_des obj.dy_des lpo obj.sampleInterval obj.q_hip_d_s obj.rF obj.lF dx_uf_p dy_uf_p u]; %obj.runTime] %
-            
+%             
             if (obj.ti-obj.t0)>=obj.T || ((obj.ti-obj.t0)>obj.T*(1/2+1/2+0*clamp(20*lpo,0,0.5)) && RefLegF2~=obj.RefLeg)
                 
                 obj.Tcp=obj.ti-obj.t0;
@@ -1268,7 +1270,7 @@ classdef  controller3DwalkNrunNhop3 < Controller
             % Simulation overrides    
             if obj.isSim
                 t_c=.3+.5*(obj.ti>3)+.5*(obj.ti>8);
-                dx_cmd = -0*1*(obj.ti>2)-0*1*(obj.ti>3)-0*1*(obj.ti>8); dy_cmd = 0*(obj.ti>2);
+                dx_cmd = -0*1*(obj.ti>2)-0*1*(obj.ti>3)-0*(obj.ti>8); dy_cmd = 0*(obj.ti>2);
                 if obj.gaitMode==GaitMode_S.Hop
                     dx_cmd=0;
                     dy_cmd=0;
