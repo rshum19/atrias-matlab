@@ -10,6 +10,7 @@ function fix_sampletime()
 
 	% If the sampletime has already been corrected, quit before doing anything
 	if tg.sampleTime == correctedSampleTime
+		disp('Sample time is correct.')
 		return
 	end
 
@@ -36,4 +37,5 @@ function fix_sampletime()
 	tg.sampleTime = correctedSampleTime;
 	disp('Re-starting the model')
 	tg.start;
+	disp('fix_sampletime done.')
 end
