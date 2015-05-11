@@ -6,27 +6,16 @@ classdef MikhailController < Controller
   % PUBLIC PROPERTIES =====================================================
   properties (Logical = true)
     % Trigger based on force
-    isForceTrig@logical = true
+    isForceTrig@logical = false
   end % properties
 
   properties
-    % Nominal Leg Length (m)
-    l0_leg@double = 0.92
-    % Swing Leg Retraction (m)
-    l_ret@double = 0.25
-    % Step duration gain
-    t_gain@double = 0
-    % Velocity scaling
-    s_vel@double = [0.35 1 0]
-    % Leg Extension Y Velocity Error P gain
-    l_ext_dy_err_p_gain = 0
-    % Leg Extension Y Velocity Error D gain
-    l_ext_dy_err_d_gain = 0
-    
-    % Time invariant trigger threshold
-    timeThres@double = 1
+    % Time variant trigger threshold
+    t_thres@double = 1
+    % Step Duration (s)
+    t_step@double = 0.35
     % Force trigger threshold
-    forceThres@double = 0.2
+    f_thres@double = 0.2
     % Leg P Gain (N*m/rad)
     kp_leg@double = 3000
     % Leg D Gain (N*m*s/rad)
@@ -39,16 +28,12 @@ classdef MikhailController < Controller
     s_torso@double = 1
     % Swing Leg Gain Scaling
     s_leg@double = 0.5
-    % Lower Torque Threshold (N*m)
+    % Lower Force Threshold (N)
     thres_lo@double = 40
-    % Upper Torque Threshold (N*m)
+    % Upper Force Threshold (N)
     thres_hi@double = 80
-    % Filter Time Constant (s)
-    tau_c@double = 0.12
-    % Step Duration (s)
-    t_step@double = 0.35
-    % Leg Extension Gain (m)
-    l_ext_gain@double = 0.02
+    % Velocity Filter Time Constant (s)
+    tau@double = 0.12
     % X Velocity Feed-Forward Gain
     dx_gain@double = 0.18
     % X Velocity Error P Gain
@@ -65,34 +50,32 @@ classdef MikhailController < Controller
     y0_offset@double = 0.14
     % Hip Offset Gain
     y0_gain@double = 0.03
+    % Leg Extension Gain (m)
+    l_ext_gain@double = 0.02
   end % properties
 
   % PROTECTED PROPERTIES ==================================================
-  properties (Access = protected) 
-    % Length of stance leg at switch
-    l_st_last@double = 0.91
-    % Length of swing leg at switch
-    l_sw_last@double = 0.91
-    % Storage for passing signals to output function
-    tmp@double = zeros(1,4)
-    % Time since last step (s)
-    t@double = 0
-    % Gait mode
-    gaitMode@GaitMode
+  properties (Access = protected)
     % Current stance leg (1 == Left, -1 == Right)
     stanceLeg@double = 1
-%     % Nominal Leg Length (m)
-%     l0_leg@double = 0.92
-%     % Swing Leg Retraction (m)
-%     l_ret@double = 0.25
+    % Gait mode
+    gaitMode@GaitMode
+    % Time since last step (s)
+    t@double = 0
+    % Heading (rad)
+    q_yaw@double = 0
     % X Center of Mass Offset (m)
-    x_offset@double = 0
+    x_offset@double = -0.0025
     % Y Center of Mass Offset (m)
-    y_offset@double = 0.065
-    % Stance toe X position of last step (m)
-    x_st_last@double = 0
-    % Swing toe X position of last step (m)
-    x_sw_last@double = 0
+    y_offset@double = -0.0225
+    % Z Center of Mass Offset (m)
+    z_offset@double = 0.1179
+    % Nominal Leg Length (m)
+    l0_leg@double = 0.89
+    % Leg length extension offset
+    l0_ext@double = 0
+    % Swing Leg Retraction (m)
+    l_ret@double = 0.25
     % Estimated X position (m)
     x_est@double = 0
     % Estimated Y position (m)
@@ -101,22 +84,32 @@ classdef MikhailController < Controller
     dx_est@double = 0
     % Estimated Y velocity (m/s)
     dy_est@double = 0
-    % Estimated X velocity of last step (m/s)
-    dx_est_e@double = 0
-    % Estimated Y velocity of last step (m/s)
-    dy_est_e@double = 0
     % Estimated average Y velocity of last step (m/s)
     dy_est_avg@double = 0
     % Target X velocity (m/s)
     dx_tgt@double = 0
     % Target Y velocity (m/s)
     dy_tgt@double = 0
+    % Estimated X velocity of last step (m/s)
+    dx_est_last@double = 0
+    % Estimated Y velocity of last step (m/s)
+    dy_est_last@double = 0
+    % Length of stance leg at switch
+    l_st_last@double = 0.9
+    % Length of swing leg at switch
+    l_sw_last@double = 0.9
+    % Stance toe X position of last step (m)
+    x_st_last@double = 0
+    % Swing toe X position of last step (m)
+    x_sw_last@double = 0
+    % Storage for passing signals to output function
+    output@double = zeros(1,8)
   end % properties
 
   % CONSTANT PROPERTIES ===================================================
   properties (Constant = true, Hidden = true)
     % Center of mass offset trim increment (m)
-    trimIncrement = 0.005
+    trimIncrement = 0.0025
     % Leg rotational spring constant (N*m/rad)
     ks_leg = 2950
     % Torso mass (kg)
@@ -127,6 +120,12 @@ classdef MikhailController < Controller
     m_total = 62.9
     % Gravity
     g = 9.81
+    % Hip length
+    l_h = 0.1831
+    % Leg motor coulomb friction
+    f_c = 0
+    % Leg motor viscous friction
+    f_v = 0
   end % properties
 
   % PUBLIC METHODS ========================================================
@@ -139,17 +138,17 @@ classdef MikhailController < Controller
 
       % Reset parameters
       obj.t = 0;
-      obj.x_st_last = 0;
-      obj.x_sw_last = 0;
       obj.x_est = 0;
       obj.y_est = 0;
       obj.dx_est = 0;
       obj.dy_est = 0;
-      obj.dx_est_e = 0;
-      obj.dy_est_e = 0;
       obj.dy_est_avg = 0;
       obj.dx_tgt = 0;
       obj.dy_tgt = 0;
+      obj.dx_est_last = 0;
+      obj.dy_est_last = 0;
+      obj.x_st_last = 0;
+      obj.x_sw_last = 0;
       obj.l_st_last = obj.l0_leg;
       obj.l_sw_last = obj.l0_leg;
     end % userSetup
@@ -158,227 +157,308 @@ classdef MikhailController < Controller
     %USEROUTPUT User output function.
 
       userOut = [...
-        ...obj.t, ...
-        ...obj.tmp, ...
-        ...obj.x_est, obj.y_est, ...
+        obj.output, ...
+        obj.x_est, obj.y_est, ...
         obj.dx_est, obj.dy_est, ...
         obj.dx_tgt, obj.dy_tgt];
     end % userOutput
 
     function u = userStep(obj, q, dq)
     %USERSTEP System output and state update equations.
-    
-      % Initialize control input
-      u = zeros(1,6);
 
-      % Update stance timer
+      % Update stance duration timer
       obj.t = obj.t + obj.sampleInterval;
 
       % Parse PS3 controller data
       obj.parsePS3Controller;
 
-      % Setup stance and swing indexes
+      % Relabel leg state variables in terms of stance and swing
       if obj.stanceLeg == 1 % Left
-        leg_m = [8 6 4 2]; leg_l = [7 5 3 1]; leg_u = [5 4 2 1];
-        hip_m = [10 9]; hip_u = [6 3];
+        q_st_mA = q(8); dq_st_mA = dq(8); q_st_mB = q(6); dq_st_mB = dq(6);
+        q_st_lA = q(7); dq_st_lA = dq(7); q_st_lB = q(5); dq_st_lB = dq(5);
+        q_st_h = q(10); dq_st_h = dq(10);
+        q_sw_mA = q(4); dq_sw_mA = dq(4); q_sw_mB = q(2); dq_sw_mB = dq(2);
+        q_sw_lA = q(3); dq_sw_lA = dq(3); q_sw_lB = q(1); dq_sw_lB = dq(1);
+        q_sw_h = q(9); dq_sw_h = dq(9);
       else % Right
-        leg_m = [4 2 8 6]; leg_l = [3 1 7 5]; leg_u = [2 1 5 4];
-        hip_m = [9 10]; hip_u = [3 6];
+        q_st_mA = q(4); dq_st_mA = dq(4); q_st_mB = q(2); dq_st_mB = dq(2);
+        q_st_lA = q(3); dq_st_lA = dq(3); q_st_lB = q(1); dq_st_lB = dq(1);
+        q_st_h = q(9); dq_st_h = dq(9);
+        q_sw_mA = q(8); dq_sw_mA = dq(8); q_sw_mB = q(6); dq_sw_mB = dq(6);
+        q_sw_lA = q(7); dq_sw_lA = dq(7); q_sw_lB = q(5); dq_sw_lB = dq(5);
+        q_sw_h = q(10); dq_sw_h = dq(10);
       end % if
 
-      % Forward kinematic lengths
-      l_h = 0.1831*obj.stanceLeg;
-      l_t = 0.334*obj.m_torso/obj.m_total;
+      % Relabel torso state variables
+      q_yaw = q(12); dq_yaw = dq(12);
+      q_pitch = q(13); dq_pitch = dq(13);
+      q_roll = q(11); dq_roll = dq(11);
 
-      % Estimate CoM velocities assuming stance leg is fixed on the ground
-      dx = -((sin(q(leg_l(1)) - q(leg_l(2)))*(sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(13) - cos(q(13))*cos(pi/2 + q(leg_l(1)))*dq(leg_l(1)) - cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(13) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*sin(q(11))*dq(hip_m(1)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*dq(hip_m(1)) + cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(13))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(13) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*sin(q(11))*dq(11) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*dq(11) - sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1))))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) - cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(13) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(leg_l(1)) - cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13) - cos(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(leg_l(1)) + cos(q(13))*sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13) + cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11) + cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(11)))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(dq(leg_l(1)) - dq(leg_l(2)))*(cos(q(13))*sin(pi/2 + q(leg_l(1))) + cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13)) - cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))))/2 + (sin(q(leg_l(1)) - q(leg_l(2)))*(dq(leg_l(1)) - dq(leg_l(2)))*(cos(q(13))*cos(pi/2 + q(leg_l(1))) - cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*sin(pi/2 + q(leg_l(1))) + sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))))/2 + (cos(q(13))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)))/2 + (cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(13))/2 - l_t*cos(q(13))*cos(q(11))*dq(13) + l_t*sin(q(13))*sin(q(11))*dq(11) + (cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(13))*dq(leg_l(1)))/2 + (cos(q(hip_m(1)))*cos(q(13))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13))/2 + l_h*cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*dq(hip_m(1)) + l_h*cos(q(hip_m(1)))*cos(q(13))*sin(q(11))*dq(13) + l_h*cos(q(13))*cos(q(11))*sin(q(hip_m(1)))*dq(13) + l_h*cos(q(hip_m(1)))*cos(q(11))*sin(q(13))*dq(11) - (cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(leg_l(1)))/2 - (cos(q(13))*sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(13))/2 - (cos(q(hip_m(1)))*sin(q(13))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - (cos(q(11))*sin(q(hip_m(1)))*sin(q(13))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - l_h*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(hip_m(1)) - l_h*sin(q(hip_m(1)))*sin(q(13))*sin(q(11))*dq(11));
-      dy = (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1))))*(dq(leg_l(1)) - dq(leg_l(2))))/2 - (cos(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11))*dq(leg_l(1)) + cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*dq(leg_l(1)) + cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11) - sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)) - sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11)))/2 - (sin(q(leg_l(1)) - q(leg_l(2)))*(cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(hip_m(1)) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(11) - cos(q(hip_m(1)))*cos(q(11))*cos(pi/2 + q(leg_l(1)))*dq(hip_m(1)) + cos(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(q(11))*sin(q(hip_m(1)))*sin(pi/2 + q(leg_l(1)))*dq(leg_l(1)) + cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*sin(q(11))*dq(11)))/2 + (sin(q(leg_l(1)) - q(leg_l(2)))*(cos(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1))) + cos(q(11))*sin(q(hip_m(1)))*sin(pi/2 + q(leg_l(1))))*(dq(leg_l(1)) - dq(leg_l(2))))/2 + l_t*cos(q(11))*dq(11) - (cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 - (cos(q(hip_m(1)))*cos(pi/2 + q(leg_l(1)))*sin(q(11))*dq(leg_l(1)))/2 - (cos(q(11))*cos(pi/2 + q(leg_l(1)))*sin(q(hip_m(1)))*dq(leg_l(1)))/2 - (cos(q(hip_m(1)))*cos(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2 - l_h*cos(q(hip_m(1)))*sin(q(11))*dq(hip_m(1)) - l_h*cos(q(11))*sin(q(hip_m(1)))*dq(hip_m(1)) - l_h*cos(q(hip_m(1)))*sin(q(11))*dq(11) - l_h*cos(q(11))*sin(q(hip_m(1)))*dq(11) + (sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(hip_m(1)))/2 + (sin(q(hip_m(1)))*sin(q(11))*sin(pi/2 + q(leg_l(1)))*dq(11))/2;
+      % Store heading for use in hold position mode
+      obj.q_yaw = q_yaw;
 
-      % Scaling factors representing the magnitude of force in each leg
-      s_st = scaleFactor(obj.ks_leg*mean(abs(q(leg_m(1:2)) - q(leg_l(1:2)))), obj.thres_lo, obj.thres_hi);
-      s_sw = scaleFactor(obj.ks_leg*mean(abs(q(leg_m(3:4)) - q(leg_l(3:4)))), obj.thres_lo, obj.thres_hi);
+      % Hip lengths
+      l_st_h = obj.l_h*obj.stanceLeg;
+      l_sw_h = -obj.l_h*obj.stanceLeg;
+
+      % Compute hip to center of mass distances and velocities
+      x_t = obj.x_offset*cos(q_pitch) + obj.z_offset*cos(q_roll)*sin(q_pitch) + obj.y_offset*sin(q_pitch)*sin(q_roll);
+      y_t = obj.y_offset*cos(q_roll) - obj.z_offset*sin(q_roll);
+      dx_t = 0;%obj.z_offset*cos(q_pitch)*cos(q_roll)*dq_pitch - obj.x_offset*sin(q_pitch)*dq_pitch + obj.y_offset*cos(q_pitch)*sin(q_roll)*dq_pitch + obj.y_offset*cos(q_roll)*sin(q_pitch)*dq_roll - obj.z_offset*sin(q_pitch)*sin(q_roll)*dq_roll;
+      dy_t = 0;%-(obj.z_offset*cos(q_roll) + obj.y_offset*sin(q_roll))*dq_roll;
+
+      % Compute toe to center of mass distances and velocities
+      dx = (sin(q_pitch)*sin(q_st_lA)*dq_pitch)/2 - (cos(q_pitch)*cos(q_st_lB)*dq_st_lB)/2 - (cos(q_pitch)*cos(q_st_lA)*dq_st_lA)/2 + (sin(q_pitch)*sin(q_st_lB)*dq_pitch)/2 - obj.x_offset*sin(q_pitch)*dq_pitch + obj.z_offset*cos(q_pitch)*cos(q_roll)*dq_pitch + obj.y_offset*cos(q_pitch)*sin(q_roll)*dq_pitch + obj.y_offset*cos(q_roll)*sin(q_pitch)*dq_roll - obj.z_offset*sin(q_pitch)*sin(q_roll)*dq_roll - (cos(q_pitch)*cos(q_roll)*cos(q_st_h)*cos(q_st_lA)*dq_pitch)/2 - (cos(q_pitch)*cos(q_roll)*cos(q_st_h)*cos(q_st_lB)*dq_pitch)/2 + (cos(q_pitch)*cos(q_st_lA)*sin(q_roll)*sin(q_st_h)*dq_pitch)/2 + (cos(q_pitch)*cos(q_st_lB)*sin(q_roll)*sin(q_st_h)*dq_pitch)/2 + (cos(q_roll)*cos(q_st_lA)*sin(q_pitch)*sin(q_st_h)*dq_roll)/2 + (cos(q_st_h)*cos(q_st_lA)*sin(q_pitch)*sin(q_roll)*dq_roll)/2 + (cos(q_roll)*cos(q_st_lB)*sin(q_pitch)*sin(q_st_h)*dq_roll)/2 + (cos(q_st_h)*cos(q_st_lB)*sin(q_pitch)*sin(q_roll)*dq_roll)/2 + (cos(q_roll)*cos(q_st_lA)*sin(q_pitch)*sin(q_st_h)*dq_st_h)/2 + (cos(q_st_h)*cos(q_st_lA)*sin(q_pitch)*sin(q_roll)*dq_st_h)/2 + (cos(q_roll)*cos(q_st_lB)*sin(q_pitch)*sin(q_st_h)*dq_st_h)/2 + (cos(q_st_h)*cos(q_st_lB)*sin(q_pitch)*sin(q_roll)*dq_st_h)/2 + (cos(q_roll)*cos(q_st_h)*sin(q_pitch)*sin(q_st_lA)*dq_st_lA)/2 + (cos(q_roll)*cos(q_st_h)*sin(q_pitch)*sin(q_st_lB)*dq_st_lB)/2 - l_st_h*cos(q_pitch)*cos(q_roll)*sin(q_st_h)*dq_pitch - l_st_h*cos(q_pitch)*cos(q_st_h)*sin(q_roll)*dq_pitch - l_st_h*cos(q_roll)*cos(q_st_h)*sin(q_pitch)*dq_roll - l_st_h*cos(q_roll)*cos(q_st_h)*sin(q_pitch)*dq_st_h - (sin(q_pitch)*sin(q_roll)*sin(q_st_h)*sin(q_st_lA)*dq_st_lA)/2 - (sin(q_pitch)*sin(q_roll)*sin(q_st_h)*sin(q_st_lB)*dq_st_lB)/2 + l_st_h*sin(q_pitch)*sin(q_roll)*sin(q_st_h)*dq_roll + l_st_h*sin(q_pitch)*sin(q_roll)*sin(q_st_h)*dq_st_h;
+      dy = l_st_h*cos(q_roll)*sin(q_st_h)*dq_roll - obj.y_offset*sin(q_roll)*dq_roll - (cos(q_st_lA)*sin(q_roll)*sin(q_st_h)*dq_roll)/2 - (cos(q_st_lB)*sin(q_roll)*sin(q_st_h)*dq_roll)/2 - (cos(q_st_lA)*sin(q_roll)*sin(q_st_h)*dq_st_h)/2 - (cos(q_st_lB)*sin(q_roll)*sin(q_st_h)*dq_st_h)/2 - (cos(q_roll)*sin(q_st_h)*sin(q_st_lA)*dq_st_lA)/2 - (cos(q_st_h)*sin(q_roll)*sin(q_st_lA)*dq_st_lA)/2 - (cos(q_roll)*sin(q_st_h)*sin(q_st_lB)*dq_st_lB)/2 - (cos(q_st_h)*sin(q_roll)*sin(q_st_lB)*dq_st_lB)/2 - obj.z_offset*cos(q_roll)*dq_roll + l_st_h*cos(q_st_h)*sin(q_roll)*dq_roll + l_st_h*cos(q_roll)*sin(q_st_h)*dq_st_h + l_st_h*cos(q_st_h)*sin(q_roll)*dq_st_h + (cos(q_roll)*cos(q_st_h)*cos(q_st_lA)*dq_roll)/2 + (cos(q_roll)*cos(q_st_h)*cos(q_st_lB)*dq_roll)/2 + (cos(q_roll)*cos(q_st_h)*cos(q_st_lA)*dq_st_h)/2 + (cos(q_roll)*cos(q_st_h)*cos(q_st_lB)*dq_st_h)/2;
+
+      % TODO: Use vertical force instead
+      % Scaling factors representing a normalized vertical GRF
+      s_st = scaleFactor(obj.ks_leg*mean(abs([q_st_mA q_st_mB] - [q_st_lA q_st_lB])), obj.thres_lo, obj.thres_hi);
+      s_sw = scaleFactor(obj.ks_leg*mean(abs([q_sw_mA q_sw_mB] - [q_sw_lA q_sw_lB])), obj.thres_lo, obj.thres_hi);
 
       % Compute smoothing factor based on confidence leg is on the ground
-      alpha = s_st*obj.sampleInterval/(obj.tau_c + obj.sampleInterval);
+      alpha = s_st*obj.sampleInterval/(obj.tau + obj.sampleInterval);
 
       % Filter velocity estimate, ignoring bad (large) values
       obj.dx_est = obj.dx_est + alpha*(dx - obj.dx_est)*(abs(dx) < 3);
       obj.dy_est = obj.dy_est + alpha*(dy - obj.dy_est)*(abs(dy) < 1);
 
       % Update CoM position estimates
-      obj.x_est = obj.x_est + obj.dx_est*obj.sampleInterval;
-      obj.y_est = obj.y_est + obj.dy_est*obj.sampleInterval;
+      obj.x_est = obj.x_est + obj.sampleInterval*(cos(q_yaw)*obj.dx_est + sin(q_yaw)*obj.dy_est);
+      obj.y_est = obj.y_est + obj.sampleInterval*(sin(q_yaw)*obj.dx_est + cos(q_yaw)*obj.dy_est);
 
-      % Stance leg push-off policy
-      l_ext = clamp(...
-        obj.l_ext_gain*clamp(abs(obj.dx_tgt), 0, 0.2 + abs(obj.dx_est)) + ...
-        obj.l_ext_dy_err_p_gain*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt) + ...
-        obj.l_ext_dy_err_d_gain*obj.stanceLeg*((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg), ...
-        0, 0.97 - obj.l0_leg)*(sign(obj.dx_tgt) == sign(obj.dx_est));
+      % Define a time variant parameter normalized between 0 and 1
+      s = clamp(obj.t/obj.t_step, 0, Inf);
+      ds = 1/obj.t_step;
 
-      % Step length policy
-      l_step = clamp(...
-        obj.dx_est*obj.dx_gain + ...
+      % Compute Stance Leg Target Positions -------------------------------
+
+      % Stance leg extension policy for energy injection
+      l_ext = obj.l0_ext + ...
+        obj.l_ext_gain*clamp(abs(obj.dx_tgt), 0, 0.2 + abs(obj.dx_est))*(sign(obj.dx_tgt) == sign(obj.dx_est));
+
+      % Clamp stance leg length to avoid mechanical limits
+      l_ext = clamp(l_ext, 0, 0.95 - obj.l0_leg);
+
+      % Target stance leg length (cubic extension in second half of stance)
+      [l_st, dl_st] = cubic_interp(...
+        [0, 0.5, 1], ...
+        [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], ...
+        [0 0 ds*l_ext], s, ds);
+
+      % Target stance leg angle and velocity (zero hip torque)
+      q_st = mean([q_st_lA q_st_lB]);
+      dq_st = mean([dq_st_lA dq_st_lB]);
+
+      % Target stance leg actuator angles and velocities
+      q_st_mA_tgt = real(q_st - acos(l_st));
+      q_st_mB_tgt = real(q_st + acos(l_st));
+      dq_st_mA_tgt = real(dq_st + dl_st/sqrt(1 - l_st^2));
+      dq_st_mB_tgt = real(dq_st - dl_st/sqrt(1 - l_st^2));
+
+      % Compute Swing Leg Target Positions --------------------------------
+
+      % Target swing leg length and velocity
+      [l_sw, dl_sw] = cubic_interp(...
+        [0, 0.5, 1], ...
+        [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], ...
+        [0, 0, 0], s, 1);
+
+      % Target swing leg foot placement policy
+      x_sw_tgt = obj.dx_est*obj.dx_gain + ...
         (obj.dx_est - obj.dx_tgt)*obj.dx_err_p_gain + ...
-        (obj.dx_est - obj.dx_est_e)*obj.dx_err_d_gain + ...
-        l_t*sin(q(13)) + obj.x_offset*cos(q(13))*obj.m_torso/obj.m_total, ...
-        -0.5, 0.5);
+        (obj.dx_est - obj.dx_est_last)*obj.dx_err_d_gain;
 
-      % Define a time variant parameter
-      t_step = obj.t_step + obj.t_gain*abs(obj.dx_tgt);
-      s = clamp(obj.t/t_step, 0, Inf);
-      ds = 1/t_step;
+      % TODO: Using zero initial velocity can improve top speed
+      % Target swing leg cartesian position and velocity
+      [x_sw, dx_sw] = cubic_interp(...
+        [0, 0.7], ...
+        [obj.x_sw_last, x_sw_tgt], ...
+        [-obj.dx_est, 0], s, ds);
 
-      % Swing leg length policy
-      [l_sw, dl_sw] = cubic_interp([0, 0.5, 1], [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], [0, 0, 0], s, obj.s_vel(1)*ds);
+      % Target swing leg angle and velocity
+      q_sw = real(pi - q_pitch - asin((x_sw + x_t)/l_sw));
+      dq_sw = - real(((dx_sw + dx_t)/l_sw - ((x_sw + x_t)*dl_sw)/l_sw^2)/sqrt(1 - (x_sw + x_t)^2/l_sw^2)) - dq_pitch;
 
-      % Swing leg angle policy
-      [x_sw, dx_sw] = cubic_interp([0, 0.7], [obj.x_sw_last, l_step], [-obj.dx_est, 0], s, obj.s_vel(2)*ds);
-      r_sw = pi - real(asin(x_sw/l_sw)) - q(13);
-      dr_sw = - dq(13) - (dx_sw/l_sw - (dl_sw*x_sw)/l_sw^2)/sqrt(1 - x_sw^2/l_sw^2);
+      % Target swing leg actuator angles and velocities
+      q_sw_mA_tgt = real(q_sw - acos(l_sw));
+      q_sw_mB_tgt = real(q_sw + acos(l_sw));
+      dq_sw_mA_tgt = real(dq_sw + dl_sw/sqrt(1 - l_sw^2));
+      dq_sw_mB_tgt = real(dq_sw - dl_sw/sqrt(1 - l_sw^2));
 
-      % Target swing leg actuator positions and velocities
-      q_sw = real(r_sw + [-1; 1]*acos(l_sw));
-      dq_sw = real(dr_sw + [1; -1]*dl_sw/sqrt(1 - l_sw^2));
+      % TODO: Verify and tune (2*obj.l0_ext) term for hopping
+      % Target swing leg lateral foot placement policy
+      y_sw_tgt = -obj.stanceLeg*(obj.y0_offset + 2*obj.l0_ext - obj.y0_gain*abs(obj.dx_tgt)) + ...
+        obj.dy_est*obj.dy_gain + ...
+        ((obj.dy_est + obj.dy_est_last)/2 - obj.dy_tgt)*obj.dy_err_p_gain + ...
+        ((obj.dy_est + obj.dy_est_last)/2 - obj.dy_est_avg)*obj.dy_err_d_gain;
 
-      % Swing leg actuator torques from PD controller
-      u(leg_u(3:4)) = obj.s_leg*((q_sw - q(leg_m(3:4)))*obj.kp_leg + (dq_sw - dq(leg_m(3:4)))*obj.kd_leg);
+      % Target swing hip angle and velocity
+      L = sqrt(obj.l0_leg^2 + l_sw_h^2);
+      q_sw_h_tgt = real(asin((y_sw_tgt + y_t)/L) - asin(l_sw_h/L) - q_roll);
+      dq_sw_h_tgt = - dq_roll;
 
-      % Stance leg length policy (extend leg after mid stance linearly)
-      [l_st, dl_st] = cubic_interp([0, 0.5, 1], [obj.l_st_last, obj.l_st_last, obj.l_st_last + l_ext], [0 0 2*l_ext], s, obj.s_vel(3)*ds);
+      % Clamp swing hip angles to avoid mechanical limits
+      q_sw_h_tgt = clamp(q_sw_h_tgt, -0.13*obj.stanceLeg, 0.35*obj.stanceLeg);
 
-      % Stance leg angle policy
-      r_st = mean(q(leg_l(1:2)));
-      dr_st = mean(dq(leg_l(1:2)));
-
-      % TODO: rewrite stance leg angle in terms of ground position
-      x_st = l_st*sin(q(13) + r_st);
-
-      % Target stance leg actuator positions and velocities
-      q_st = real(r_st + [-1; 1]*acos(l_st));
-      dq_st = real(dr_st + [1; -1]*dl_st/sqrt(1 - l_st^2));
+      % Compute Control Inputs --------------------------------------------
 
       % Stance leg actuator torques from PD controller
-      u(leg_u(1:2)) = (q_st - q(leg_m(1:2)))*obj.kp_leg + (dq_st - dq(leg_m(1:2)))*obj.kd_leg;
+      u_st_A = obj.f_c*sign(dq_st_mA_tgt) + (q_st_mA_tgt - q_st_mA)*obj.kp_leg + (dq_st_mA_tgt - dq_st_mA)*obj.kd_leg;
+      u_st_B = obj.f_c*sign(dq_st_mB_tgt) + (q_st_mB_tgt - q_st_mB)*obj.kp_leg + (dq_st_mB_tgt - dq_st_mB)*obj.kd_leg;
 
-      % Add additional torque commands to leg actuators to stabilize torso
-      % scaled based on the "force" felt in the leg
-      u(leg_u) = u(leg_u) + ...
-        [s_st s_st s_sw s_sw]*obj.s_torso*(q(13)*obj.kp_leg + dq(13)*obj.kd_leg);
+      % Swing leg actuator torques from PD controller
+      u_sw_A = obj.f_c*sign(dq_sw_mA_tgt) + obj.s_leg*((q_sw_mA_tgt - q_sw_mA)*obj.kp_leg + (dq_sw_mA_tgt - dq_sw_mA)*obj.kd_leg);
+      u_sw_B = obj.f_c*sign(dq_sw_mB_tgt) + obj.s_leg*((q_sw_mB_tgt - q_sw_mB)*obj.kp_leg + (dq_sw_mB_tgt - dq_sw_mB)*obj.kd_leg);
 
-      % Lateral foot placement policy
-      d = - (obj.y0_offset - obj.y0_gain*abs(obj.dx_tgt))*obj.stanceLeg - ...
-        obj.dy_est*obj.dy_gain - ...
-        ((obj.dy_est + obj.dy_est_e)/2 - obj.dy_tgt)*obj.dy_err_p_gain - ...
-        ((obj.dy_est + obj.dy_est_e)/2 - obj.dy_est_avg)*obj.dy_err_d_gain - ...
-        l_t*sin(q(11)) - obj.y_offset*cos(q(11))*obj.m_torso/obj.m_total;
-
-      % Inverse kinematics
-      l_l = cos(q(leg_l(4))/2 - q(leg_l(3))/2);
-      dl_l = -sin(q(leg_l(3))/2 - q(leg_l(4))/2)*(dq(leg_l(3))/2 - q(leg_l(4))/2);
-      L = sqrt(l_l^2 + l_h^2);
-      q1 = asin(d/L);
-      q2 = asin(-l_h/L);
-      q_h = clamp(real(q1 - q2 - q(11)), -0.13*obj.stanceLeg, 0.35*obj.stanceLeg);
-      dq_h = real(-(d*l_l*dl_l)/(sqrt(1 - d^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2)) - (l_h*l_l*dl_l)/(sqrt(1 - l_h^2/(l_h^2 + l_l^2))*(l_h^2 + l_l^2)^(3/2)) - dq(11));
+      % Torso stabilization PD controller scaled based on leg force
+      u_st_A = u_st_A + s_st*obj.s_torso*(q_pitch*obj.kp_leg + dq_pitch*obj.kd_leg);
+      u_st_B = u_st_B + s_st*obj.s_torso*(q_pitch*obj.kp_leg + dq_pitch*obj.kd_leg);
+      u_sw_A = u_sw_A + s_sw*obj.s_torso*(q_pitch*obj.kp_leg + dq_pitch*obj.kd_leg);
+      u_sw_B = u_sw_B + s_sw*obj.s_torso*(q_pitch*obj.kp_leg + dq_pitch*obj.kd_leg);
 
       % Hip feed-forward torque for gravity compensation
-      u(hip_u) = max(s_st, s_sw)*[1; -1]*obj.stanceLeg*obj.m_leg*obj.g*abs(l_h);
+      u_st_h = max(s_st, s_sw)*obj.m_leg*obj.g*l_st_h;
+      u_sw_h = max(s_st, s_sw)*obj.m_leg*obj.g*l_sw_h;
 
       % Swing leg hip PD controller
-      u(hip_u(2)) = u(hip_u(2)) + ...
-        s*(1 - s_sw)*(q_h - q(hip_m(2)))*obj.kp_hip + (dq_h - dq(hip_m(2)))*obj.kd_hip;
+      u_sw_h = u_sw_h + s*(1 - s_sw)*(q_sw_h_tgt - q_sw_h)*obj.kp_hip + (dq_sw_h_tgt - dq_sw_h)*obj.kd_hip;
 
-      % Torso stabilization weighted PD controller
-      u(hip_u) = u(hip_u) + ...
-        [s_st s_sw].*obj.s_torso.*(q(11)*obj.kp_hip + dq(11)*obj.kd_hip);
+      % Torso stabilization PD controller scaled based on leg force
+      u_st_h = u_st_h + s_st*obj.s_torso*(q_roll*obj.kp_hip + dq_roll*obj.kd_hip);
+      u_sw_h = u_sw_h + s_sw*obj.s_torso*(q_roll*obj.kp_hip + dq_roll*obj.kd_hip);
 
-      % Detect when swing leg force exceeds stance leg force
-      if obj.isForceTrig*(s_sw > obj.forceThres && s > 0.9) || s >= obj.timeThres
+      % Detect when time or force thresholds have been reached
+      if obj.isForceTrig*(s_sw > obj.f_thres && s > 0.9) || s >= obj.t_thres
         % Switch stance legs
         obj.stanceLeg = -obj.stanceLeg;
 
-        % Exit conditions
+        % Store exit conditions
         obj.x_st_last = x_sw;
-        obj.x_sw_last = x_st;
-        obj.dx_est_e = obj.dx_est;
-        obj.dy_est_avg = (obj.dy_est + obj.dy_est_e)/2;
-        obj.dy_est_e = obj.dy_est;
+        obj.x_sw_last = l_st*sin(q_pitch + q_st) - x_t;
+        obj.dx_est_last = obj.dx_est;
+        obj.dy_est_last = obj.dy_est;
         obj.l_st_last = l_sw;
         obj.l_sw_last = l_st;
+        obj.dy_est_avg = (obj.dy_est + obj.dy_est_last)/2;
 
         % Reset time since last switch
         obj.t = 0;
       end % if
 
-      % Pass signals to output function
-      obj.tmp = [l_st, r_st, l_sw, r_sw];%, dl_st, dr_st, dl_sw, dr_sw];
+      % Store signals for logging
+      obj.output = [q_st_mA, q_st_mA_tgt, q_st_mB, q_st_mB_tgt, q_sw_mA, q_sw_mA_tgt, q_sw_mB, q_sw_mB_tgt];
+
+      % Set commanded torque vector
+      if obj.stanceLeg == 1 % Left
+        u = [u_sw_B u_sw_A u_sw_h u_st_B u_st_A u_st_h];
+      else % Right
+        u = [u_st_B u_st_A u_st_h u_sw_B u_sw_A u_sw_h];
+      end % if
     end % userStep
 
     function parsePS3Controller(obj)
     %PARSEPS3CONTROLLER
 
-      % Parse gait specific tweaks
+      % Parse D-Pad for velocity trimming
+      if obj.ps3.up.isPressed
+        % Trim forward
+        obj.x_offset = obj.x_offset + obj.trimIncrement;
+      elseif obj.ps3.right.isPressed
+        % Trim right
+        obj.y_offset = obj.y_offset + obj.trimIncrement;
+      elseif obj.ps3.down.isPressed
+        % Trim backward
+        obj.x_offset = obj.x_offset - obj.trimIncrement;
+      elseif obj.ps3.left.isPressed
+        % Trim left
+        obj.y_offset = obj.y_offset - obj.trimIncrement;
+      end % if
+
+      % Parse gait modes
       if obj.ps3.cross.isPressed; obj.gaitMode = GaitMode.Cross;
       elseif obj.ps3.circle.isPressed; obj.gaitMode = GaitMode.Circle;
       elseif obj.ps3.triangle.isPressed; obj.gaitMode = GaitMode.Triangle;
       elseif obj.ps3.square.isPressed; obj.gaitMode = GaitMode.Square;
       end % if
 
-%       switch obj.gaitMode
-%       case GaitMode.Cross
-%         % Custom tuning mode
-%       case GaitMode.Circle
-%         % Robust stand mode
-%       case GaitMode.Triangle
-%         % Walk/Run mode
-%       otherwise % GaitMode.Square
-%         % Nothing
-%       end % switch
+      % Parse select button for reset home
+      if obj.ps3.select.isPressed; obj.x_est = 0; obj.y_est = 0; end % if
 
-      t_c = 2; dx_max = 1; dy_max = 0.2;
+      % Parse left joystick data for X Velocity
+      dx_cmd = clamp(obj.ps3.leftStickY, -1, 1);
 
-      % Parse center of mass trimming
-      if obj.ps3.up.isPressed
-        % Trim forward
-        obj.x_offset = obj.x_offset + obj.trimIncrement;
-      elseif obj.ps3.right.isPressed
-        % Trim right
-        obj.y_offset = obj.y_offset - obj.trimIncrement;
-      elseif obj.ps3.down.isPressed
-        % Trim backward
-        obj.x_offset = obj.x_offset - obj.trimIncrement;
-      elseif obj.ps3.left.isPressed
-        % Trim left
-        obj.y_offset = obj.y_offset + obj.trimIncrement;
-      end % if
+      % Parse right joystick data for Y Velocity
+      dy_cmd = clamp(obj.ps3.rightStickX, -1, 1);
 
-      % Parse right lower trigger
-      if obj.ps3.r2.value;
-        dx_max = 2*dx_max;
-      end % if
+      % Parse right lower trigger for turbo/run
+      if obj.ps3.r2.value; dx_cmd = 2*dx_cmd; end % if
 
-      % Parse left joystick data (X Velocity)
-      dx_cmd = dx_max*clamp(obj.ps3.leftStickY, -1, 1);
+      % Set gait mode specific tweaks
+      switch obj.gaitMode
+      case GaitMode.Cross
+        % Hold position mode
+        l0_ext = 0;
+        obj.l0_leg = 0.89;
 
-      % Parse right joystick data (Y Velocity)
-      dy_cmd = dy_max*clamp(obj.ps3.rightStickX, -1, 1);
+        % Command velocity toward home position
+        dx_cmd = clamp(-0.2*(cos(obj.q_yaw)*obj.x_est + sin(obj.q_yaw)*obj.y_est), -0.4, 0.4);
+        dy_cmd = clamp(-0.2*(cos(obj.q_yaw)*obj.y_est - sin(obj.q_yaw)*obj.x_est), -0.2, 0.2);
+
+      case GaitMode.Circle
+        % Robust stand/walk mode
+        l0_ext = 0;
+        obj.l0_leg = 0.91;
+        dx_cmd = 0.6*dx_cmd;
+        dy_cmd = 0.2*dy_cmd;
+
+      case GaitMode.Triangle
+        % Fast walk/run mode
+        l0_ext = 0;
+        obj.l0_leg = 0.89;
+        dx_cmd = 1.25*dx_cmd;
+        dy_cmd = 0.2*dy_cmd;
+
+      otherwise % GaitMode.Square
+        % Hop mode
+        l0_ext = 0.06;
+        obj.l0_leg = 0.89;
+        dx_cmd = 0.2*dx_cmd;
+        dy_cmd = 0.2*dy_cmd;
+      end % switch
 
       % Simulation overrides
       if obj.isSim
-        dx_cmd = 0; dy_cmd = 0;
+        % if obj.runTime < 10
+        %   obj.gaitMode = GaitMode.Square;
+        % elseif obj.runTime < 12.5
+        %   obj.gaitMode = GaitMode.Triangle;
+        % elseif obj.runTime < 17.5
+        %   obj.gaitMode = GaitMode.Triangle;
+        %   dx_cmd = -2.5;
+        % elseif obj.runTime < 22.5
+        %   obj.gaitMode = GaitMode.Triangle;
+        % elseif obj.runTime < 25
+        %   obj.gaitMode = GaitMode.Cross;
+        % end % if
+        
+        % dy_cmd = 0.2*((obj.runTime >= 15) - 2*(obj.runTime >= 30));
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
-        % dx_cmd = 0.25*(floor(obj.runTime/5));
-        dx_cmd = -1.5*(obj.runTime >= 5);
+        % dx_cmd = clamp(-0.5*(obj.runTime/5), -2.5, 2.5);
+        % dx_cmd = -2.5*(obj.runTime >= 5);
       end % if
 
-      % Compute smoothing factor
-      alpha_x = obj.sampleInterval/(t_c + obj.sampleInterval);
-      alpha_y = obj.sampleInterval/(t_c/3 + obj.sampleInterval);
+      % Filter target X velocity command
+      alpha_dx = obj.sampleInterval/(3 + obj.sampleInterval);
+      obj.dx_tgt = obj.dx_tgt + alpha_dx*(dx_cmd - obj.dx_tgt);
 
-      % Filter target velocity commands
-      obj.dx_tgt = obj.dx_tgt + alpha_x*(dx_cmd - obj.dx_tgt);
-      obj.dy_tgt = obj.dy_tgt + alpha_y*(dy_cmd - obj.dy_tgt);
+      % Filter target Y velocity command
+      alpha_dy = obj.sampleInterval/(0.5 + obj.sampleInterval);
+      obj.dy_tgt = obj.dy_tgt + alpha_dy*(dy_cmd - obj.dy_tgt);
+
+      % Filter leg extension offset
+      alpha_l0 = obj.sampleInterval/(1 + obj.sampleInterval);
+      obj.l0_ext = obj.l0_ext + alpha_l0*(l0_ext - obj.l0_ext);
     end % parsePS3Controller
   end % methods
 end % classdef

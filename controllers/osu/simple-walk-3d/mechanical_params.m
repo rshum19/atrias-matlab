@@ -72,10 +72,10 @@ i_lowerleg_products = [0 0 0];
 l_lowerleg = 0.49;
 
 % Foot
-d_foot_point_front = [0.06350 -0.02515 0];
-d_foot_point_back = [-0.06350 -0.02515 0];
-% d_foot_point_front = [0.10162 -0.02515 0];
-% d_foot_point_back = [-0.10162 -0.02515 0];
+% d_foot_point_front = [0.06350 -0.02515 0];
+% d_foot_point_back = [-0.06350 -0.02515 0];
+d_foot_point_front = [0.10162 -0.02515 0];
+d_foot_point_back = [-0.10162 -0.02515 0];
 m_foot = 0.0857;
 com_foot = [0 -0.00959 0];
 i_foot_moments = [0.00001 0.00006 0.00006];
@@ -147,7 +147,7 @@ boom_mount_to_center = 0.2225;
 boom_mount_to_center_diagonal = boom_mount_to_center / cos(pitch_mount_angle);
 torso_12 = [0 -boom_mount_to_hip -boom_mount_to_center];
 % com_torso = [0 0.05 -0.1577];
-com_torso = [0.01 (0.334-0.318) (-0.2225+0.07)];
+com_torso = [0.01 (0.334 - 0.318) (-0.2225 + 0.06)];
 m_torso = 22.2;
 % i_torso_moments = [1.5 1.5 2.2];
 i_torso_moments = [1.2 0.7 1.6];
