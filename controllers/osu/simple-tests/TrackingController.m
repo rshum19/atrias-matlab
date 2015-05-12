@@ -6,9 +6,9 @@ classdef TrackingController < Controller
   % PUBLIC PROPERTIES =====================================================
   properties
     % Leg P Gain (N*m/rad)
-    kp_leg@double = 3000
+    kp_leg@double = 4000
     % Leg D Gain (N*m*s/rad)
-    kd_leg@double = 150
+    kd_leg@double = 200
     % Hip P Gain (N*m/rad)
     kp_hip@double = 2000
     % Hip D Gain (N*m*s/rad)
