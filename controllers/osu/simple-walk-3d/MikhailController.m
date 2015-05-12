@@ -24,6 +24,14 @@ classdef MikhailController < Controller
     kp_hip@double = 2000
     % Hip D Gain (N*m*s/rad)
     kd_hip@double = 75
+    % Left A Motor Torque Scaling Factor
+    s_l_A@double = 1
+    % Left B Motor Torque Scaling Factor
+    s_l_B@double = 1.1
+    % Right A Motor Torque Scaling Factor
+    s_r_A@double = 1
+    % Right B Motor Torque Scaling Factor
+    s_r_B@double = 1.15
     % Torso Gain Scaling
     s_torso@double = 1
     % Swing Leg Gain Scaling
@@ -290,7 +298,6 @@ classdef MikhailController < Controller
       dq_sw_mB_tgt = real(dq_sw - dl_sw/sqrt(1 - l_sw^2));
 
       % TODO: Verify and tune (2*obj.l0_ext) term for hopping
-      % TODO: Verify using dx_est instead of dx_tgt
       % Target swing leg lateral foot placement policy
       y_sw_tgt = -obj.stanceLeg*(obj.y0_offset + 2*obj.l0_ext - obj.y0_gain*abs(obj.dx_est)) + ...
         obj.dy_est*obj.dy_gain + ...
@@ -355,9 +362,11 @@ classdef MikhailController < Controller
 
       % Set commanded torque vector
       if obj.stanceLeg == 1 % Left
-        u = [u_sw_B u_sw_A u_sw_h u_st_B u_st_A u_st_h];
+        u = [obj.s_r_B*u_sw_B, obj.s_r_A*u_sw_A, u_sw_h, ...
+            obj.s_l_B*u_st_B, obj.s_l_A*u_st_A, u_st_h];
       else % Right
-        u = [u_st_B u_st_A u_st_h u_sw_B u_sw_A u_sw_h];
+        u = [obj.s_l_B*u_st_B, obj.s_l_A*u_st_A, u_st_h, ...
+            obj.s_r_B*u_sw_B, obj.s_r_A*u_sw_A, u_sw_h];
       end % if
     end % userStep
 
@@ -367,13 +376,13 @@ classdef MikhailController < Controller
       % Parse D-Pad for velocity trimming
       if obj.ps3.up.isPressed
         % Trim forward
-        obj.x_offset = obj.x_offset + obj.trimIncrement;
+        obj.x_offset = obj.x_offset - obj.trimIncrement;
       elseif obj.ps3.right.isPressed
         % Trim right
         obj.y_offset = obj.y_offset + obj.trimIncrement;
       elseif obj.ps3.down.isPressed
         % Trim backward
-        obj.x_offset = obj.x_offset - obj.trimIncrement;
+        obj.x_offset = obj.x_offset + obj.trimIncrement;
       elseif obj.ps3.left.isPressed
         % Trim left
         obj.y_offset = obj.y_offset - obj.trimIncrement;
@@ -393,7 +402,7 @@ classdef MikhailController < Controller
       dx_cmd = clamp(obj.ps3.leftStickY, -1, 1);
 
       % Parse right joystick data for Y Velocity
-      dy_cmd = clamp(obj.ps3.rightStickX, -1, 1);
+      dy_cmd = -clamp(obj.ps3.rightStickX, -1, 1);
 
       % Parse right lower trigger for turbo/run
       if obj.ps3.r2.value; dx_cmd = 2*dx_cmd; end % if
@@ -421,7 +430,7 @@ classdef MikhailController < Controller
         % TODO: Increase s_leg once up to speed (+1 m/s)?
         % Fast walk/run mode
         l0_ext = 0;
-        obj.l0_leg = 0.89;
+        obj.l0_leg = 0.9;
         dx_cmd = 1.25*dx_cmd;
         dy_cmd = 0.2*dy_cmd;
 
@@ -435,24 +444,11 @@ classdef MikhailController < Controller
 
       % Simulation overrides
       if obj.isSim
-        % if obj.runTime < 10
-        %   obj.gaitMode = GaitMode.Square;
-        % elseif obj.runTime < 12.5
-        %   obj.gaitMode = GaitMode.Triangle;
-        % elseif obj.runTime < 17.5
-        %   obj.gaitMode = GaitMode.Triangle;
-        %   dx_cmd = -2.5;
-        % elseif obj.runTime < 22.5
-        %   obj.gaitMode = GaitMode.Triangle;
-        % elseif obj.runTime < 25
-        %   obj.gaitMode = GaitMode.Cross;
-        % end % if
-        
         obj.gaitMode = GaitMode.Triangle;
         % dy_cmd = 0.2*((obj.runTime >= 15) - 2*(obj.runTime >= 30));
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = -clamp(obj.runTime/15, -4, 4);
-        dx_cmd = -3*(obj.runTime >= 5);
+        dx_cmd = -2.5*(obj.runTime >= 5);
       end % if
 
       % Filter target X velocity command

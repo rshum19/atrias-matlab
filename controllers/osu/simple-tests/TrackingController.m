@@ -8,7 +8,15 @@ classdef TrackingController < Controller
     % Leg P Gain (N*m/rad)
     kp_leg@double = 4000
     % Leg D Gain (N*m*s/rad)
-    kd_leg@double = 200
+    kd_leg@double = 150
+    % Left A Motor Torque Scaling Factor
+    s_l_A@double = 1
+    % Left B Motor Torque Scaling Factor
+    s_l_B@double = 1.1
+    % Right A Motor Torque Scaling Factor
+    s_r_A@double = 1
+    % Right B Motor Torque Scaling Factor
+    s_r_B@double = 1.15
     % Hip P Gain (N*m/rad)
     kp_hip@double = 2000
     % Hip D Gain (N*m*s/rad)
@@ -106,23 +114,24 @@ classdef TrackingController < Controller
       dq_r_mB_tgt = obj.s*real(-obj.q_A*cos(obj.t) - (obj.l_A*sin(obj.t))/sqrt(1 - (0.8 - obj.l_A*cos(obj.t))^2));
       
       % Left leg PD controller with feed-forward friction compensation
-      u_l_A = sign(dq_l_mA_tgt)*(obj.f_v*abs(dq_l_mA_tgt) + obj.f_c) + ...
+      u_l_A = obj.f_c*sign(dq_l_mA_tgt) + obj.f_v*dq_l_mA_tgt + ...
         (q_l_mA_tgt - q_l_mA)*obj.kp_leg + ...
         (dq_l_mA_tgt - dq_l_mA)*obj.kd_leg;
-      u_l_B = sign(dq_l_mB_tgt)*(obj.f_v*abs(dq_l_mB_tgt) + obj.f_c) + ...
+      u_l_B = obj.f_c*sign(dq_l_mB_tgt) + obj.f_v*dq_l_mB_tgt + ...
         (q_l_mB_tgt - q_l_mB)*obj.kp_leg + ...
         (dq_l_mB_tgt - dq_l_mB)*obj.kd_leg;
 
       % Right leg PD controller with feed-forward friction compensation
-      u_r_A = sign(dq_r_mA_tgt)*(obj.f_v*abs(dq_r_mA_tgt) + obj.f_c) + ...
+      u_r_A = obj.f_c*sign(dq_r_mA_tgt) + obj.f_v*dq_r_mA_tgt + ...
         (q_r_mA_tgt - q_r_mA)*obj.kp_leg + ...
         (dq_r_mA_tgt - dq_r_mA)*obj.kd_leg;
-      u_r_B = sign(dq_r_mB_tgt)*(obj.f_v*abs(dq_r_mB_tgt) + obj.f_c) + ...
+      u_r_B = obj.f_c*sign(dq_r_mB_tgt) + obj.f_v*dq_r_mB_tgt + ...
         (q_r_mB_tgt - q_r_mB)*obj.kp_leg + ...
         (dq_r_mB_tgt - dq_r_mB)*obj.kd_leg;
 
       % Set motor torque command vector
-      u = [u_r_B u_r_A u_r_h u_l_B u_l_A u_l_h];
+      u = [obj.s_r_B*u_r_B, obj.s_r_A*u_r_A, u_r_h, ...
+          obj.s_l_B*u_l_B, obj.s_l_A*u_l_A, u_l_h];
       
       % Output tracking errors
       obj.output = [...
