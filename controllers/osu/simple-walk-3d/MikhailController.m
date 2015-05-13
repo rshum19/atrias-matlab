@@ -34,8 +34,6 @@ classdef MikhailController < Controller
     s_r_B@double = 1.15
     % Torso Gain Scaling
     s_torso@double = 1
-    % Swing Leg Gain Scaling
-    s_leg@double = 0.5
     % Lower Force Threshold (N)
     thres_lo@double = 40
     % Upper Force Threshold (N)
@@ -43,7 +41,7 @@ classdef MikhailController < Controller
     % Velocity Filter Time Constant (s)
     tau@double = 0.12
     % X Velocity Feed-Forward Gain
-    dx_gain@double = 0.16
+    dx_gain@double = 0.18
     % X Velocity Error P Gain
     dx_err_p_gain@double = 0.1
     % X Velocity Error D Gain
@@ -68,14 +66,18 @@ classdef MikhailController < Controller
     stanceLeg@double = 1
     % Gait mode
     gaitMode@GaitMode
+    % Swing Leg P Gain Scaling
+    s_kp_leg@double = 0.5
+    % Swing Leg P Gain Scaling
+    s_kd_leg@double = 0.5
     % Time since last step (s)
     t@double = 0
     % Heading (rad)
     q_yaw@double = 0
     % X Center of Mass Offset (m)
-    x_offset@double = -0.001
+    x_offset@double = 0.003
     % Y Center of Mass Offset (m)
-    y_offset@double = -0.024
+    y_offset@double = -0.014
     % Z Center of Mass Offset (m)
     z_offset@double = 0.1179
     % Nominal Leg Length (m)
@@ -212,8 +214,8 @@ classdef MikhailController < Controller
       % Compute hip to center of mass distances and velocities
       x_t = obj.x_offset*cos(q_pitch) + obj.z_offset*cos(q_roll)*sin(q_pitch) + obj.y_offset*sin(q_pitch)*sin(q_roll);
       y_t = obj.y_offset*cos(q_roll) - obj.z_offset*sin(q_roll);
-      dx_t = obj.z_offset*cos(q_pitch)*cos(q_roll)*dq_pitch - obj.x_offset*sin(q_pitch)*dq_pitch + obj.y_offset*cos(q_pitch)*sin(q_roll)*dq_pitch + obj.y_offset*cos(q_roll)*sin(q_pitch)*dq_roll - obj.z_offset*sin(q_pitch)*sin(q_roll)*dq_roll;
-      dy_t = -(obj.z_offset*cos(q_roll) + obj.y_offset*sin(q_roll))*dq_roll;
+      dx_t = 0;%obj.z_offset*cos(q_pitch)*cos(q_roll)*dq_pitch - obj.x_offset*sin(q_pitch)*dq_pitch + obj.y_offset*cos(q_pitch)*sin(q_roll)*dq_pitch + obj.y_offset*cos(q_roll)*sin(q_pitch)*dq_roll - obj.z_offset*sin(q_pitch)*sin(q_roll)*dq_roll;
+      dy_t = 0;%-(obj.z_offset*cos(q_roll) + obj.y_offset*sin(q_roll))*dq_roll;
 
       % Compute toe to center of mass distances and velocities
       dx = (sin(q_pitch)*sin(q_st_lA)*dq_pitch)/2 - (cos(q_pitch)*cos(q_st_lB)*dq_st_lB)/2 - (cos(q_pitch)*cos(q_st_lA)*dq_st_lA)/2 + (sin(q_pitch)*sin(q_st_lB)*dq_pitch)/2 - obj.x_offset*sin(q_pitch)*dq_pitch + obj.z_offset*cos(q_pitch)*cos(q_roll)*dq_pitch + obj.y_offset*cos(q_pitch)*sin(q_roll)*dq_pitch + obj.y_offset*cos(q_roll)*sin(q_pitch)*dq_roll - obj.z_offset*sin(q_pitch)*sin(q_roll)*dq_roll - (cos(q_pitch)*cos(q_roll)*cos(q_st_h)*cos(q_st_lA)*dq_pitch)/2 - (cos(q_pitch)*cos(q_roll)*cos(q_st_h)*cos(q_st_lB)*dq_pitch)/2 + (cos(q_pitch)*cos(q_st_lA)*sin(q_roll)*sin(q_st_h)*dq_pitch)/2 + (cos(q_pitch)*cos(q_st_lB)*sin(q_roll)*sin(q_st_h)*dq_pitch)/2 + (cos(q_roll)*cos(q_st_lA)*sin(q_pitch)*sin(q_st_h)*dq_roll)/2 + (cos(q_st_h)*cos(q_st_lA)*sin(q_pitch)*sin(q_roll)*dq_roll)/2 + (cos(q_roll)*cos(q_st_lB)*sin(q_pitch)*sin(q_st_h)*dq_roll)/2 + (cos(q_st_h)*cos(q_st_lB)*sin(q_pitch)*sin(q_roll)*dq_roll)/2 + (cos(q_roll)*cos(q_st_lA)*sin(q_pitch)*sin(q_st_h)*dq_st_h)/2 + (cos(q_st_h)*cos(q_st_lA)*sin(q_pitch)*sin(q_roll)*dq_st_h)/2 + (cos(q_roll)*cos(q_st_lB)*sin(q_pitch)*sin(q_st_h)*dq_st_h)/2 + (cos(q_st_h)*cos(q_st_lB)*sin(q_pitch)*sin(q_roll)*dq_st_h)/2 + (cos(q_roll)*cos(q_st_h)*sin(q_pitch)*sin(q_st_lA)*dq_st_lA)/2 + (cos(q_roll)*cos(q_st_h)*sin(q_pitch)*sin(q_st_lB)*dq_st_lB)/2 - l_st_h*cos(q_pitch)*cos(q_roll)*sin(q_st_h)*dq_pitch - l_st_h*cos(q_pitch)*cos(q_st_h)*sin(q_roll)*dq_pitch - l_st_h*cos(q_roll)*cos(q_st_h)*sin(q_pitch)*dq_roll - l_st_h*cos(q_roll)*cos(q_st_h)*sin(q_pitch)*dq_st_h - (sin(q_pitch)*sin(q_roll)*sin(q_st_h)*sin(q_st_lA)*dq_st_lA)/2 - (sin(q_pitch)*sin(q_roll)*sin(q_st_h)*sin(q_st_lB)*dq_st_lB)/2 + l_st_h*sin(q_pitch)*sin(q_roll)*sin(q_st_h)*dq_roll + l_st_h*sin(q_pitch)*sin(q_roll)*sin(q_st_h)*dq_st_h;
@@ -268,9 +270,9 @@ classdef MikhailController < Controller
 
       % Target swing leg length and velocity
       [l_sw, dl_sw] = cubic_interp(...
-        [0, 0.5, 1], ...
-        [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], ...
-        [0, 0, 0], s, 1);
+        [0, 0.4, 0.6, 1], ...
+        [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg - obj.l_ret, obj.l0_leg], ...
+        [0, 0, 0, 0], s, 1);
 
       % Target swing leg foot placement policy
       x_sw_tgt = obj.dx_est*obj.dx_gain + ...
@@ -319,8 +321,8 @@ classdef MikhailController < Controller
       u_st_B = obj.f_c*sign(dq_st_mB_tgt) + obj.f_v*dq_st_mB_tgt + (q_st_mB_tgt - q_st_mB)*obj.kp_leg + (dq_st_mB_tgt - dq_st_mB)*obj.kd_leg;
 
       % Swing leg actuator torques from PD controller
-      u_sw_A = obj.f_c*sign(dq_sw_mA_tgt) + obj.f_v*dq_sw_mA_tgt + obj.s_leg*((q_sw_mA_tgt - q_sw_mA)*obj.kp_leg + (dq_sw_mA_tgt - dq_sw_mA)*obj.kd_leg);
-      u_sw_B = obj.f_c*sign(dq_sw_mB_tgt) + obj.f_v*dq_sw_mB_tgt + obj.s_leg*((q_sw_mB_tgt - q_sw_mB)*obj.kp_leg + (dq_sw_mB_tgt - dq_sw_mB)*obj.kd_leg);
+      u_sw_A = obj.f_c*sign(dq_sw_mA_tgt) + obj.f_v*dq_sw_mA_tgt + obj.s_kp_leg*(q_sw_mA_tgt - q_sw_mA)*obj.kp_leg + obj.s_kd_leg*(dq_sw_mA_tgt - dq_sw_mA)*obj.kd_leg;
+      u_sw_B = obj.f_c*sign(dq_sw_mB_tgt) + obj.f_v*dq_sw_mB_tgt + obj.s_kp_leg*(q_sw_mB_tgt - q_sw_mB)*obj.kp_leg + obj.s_kd_leg*(dq_sw_mB_tgt - dq_sw_mB)*obj.kd_leg;
 
       % Torso stabilization PD controller scaled based on leg force
       u_st_A = u_st_A + s_st*obj.s_torso*(q_pitch*obj.kp_leg + dq_pitch*obj.kd_leg);
@@ -411,6 +413,8 @@ classdef MikhailController < Controller
       switch obj.gaitMode
       case GaitMode.Cross
         % Hold position mode
+        obj.s_kp_leg = 0.5;
+        obj.s_kd_leg = 0.5;
         l0_ext = 0;
         obj.l0_leg = 0.9;
 
@@ -421,6 +425,8 @@ classdef MikhailController < Controller
       case GaitMode.Circle
         % TODO: Softer gains, force triggering
         % Robust stand/walk mode
+        obj.s_kp_leg = 0.5;
+        obj.s_kd_leg = 0.5;
         l0_ext = 0;
         obj.l0_leg = 0.9;
         dx_cmd = 0.6*dx_cmd;
@@ -429,6 +435,8 @@ classdef MikhailController < Controller
       case GaitMode.Triangle
         % TODO: Increase s_leg once up to speed (+1 m/s)?
         % Fast walk/run mode
+        obj.s_kp_leg = 0.5;
+        obj.s_kd_leg = 0.5 - clamp(0.15*abs(obj.dx_tgt), 0, 0.2);
         l0_ext = 0;
         obj.l0_leg = 0.9;
         dx_cmd = 1.25*dx_cmd;
@@ -436,8 +444,10 @@ classdef MikhailController < Controller
 
       otherwise % GaitMode.Square
         % Hop mode
+        obj.s_kp_leg = 0.5;
+        obj.s_kd_leg = 0.5;
         l0_ext = 0.06;
-        obj.l0_leg = 0.89;
+        obj.l0_leg = 0.9;
         dx_cmd = 0.2*dx_cmd;
         dy_cmd = 0.2*dy_cmd;
       end % switch
