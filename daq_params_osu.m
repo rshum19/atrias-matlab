@@ -70,6 +70,8 @@ HIP_INC_MAX_ENCODER_TICKS = 2^16 - 1; % Max value of the incremental hip encoder
 HIP_ABS_MAX_ENCODER_TICKS = 2^13 - 1; % Max value of the absolute hip encoder (13-bit)
 BOOM_MAX_ENCODER_TICKS = 2^17 - 1; % Max value of the absolute boom encoders (17-bit)
 
+MTR_MAX_TEMP = 118; % Maximum motor temperature, degrees Celsius
+
 % Calibrations done at OSU
 RIGHT_HIP_CALIB_VAL = 7028;  % Calibration encoder value in ticks
 LEFT_HIP_CALIB_VAL = 1032;  % Calibration encoder value in ticks
