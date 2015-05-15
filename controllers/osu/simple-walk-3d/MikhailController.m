@@ -10,25 +10,25 @@ classdef MikhailController < Controller
     % Step Duration Gain
     t_gain@double = 0.02
     % Stance Leg P Gain (N*m/rad)
-    kp_st_leg@double = 3000
+    kp_st_leg@double = 3200
     % Stance Leg D Gain (N*m*s/rad)
-    kd_st_leg@double = 225
+    kd_st_leg@double = 220
     % Swing Leg P Gain (N*m/rad)
-    kp_sw_leg@double = 2500
+    kp_sw_leg@double = 2800
     % Swing Leg D Gain (N*m*s/rad)
     kd_sw_leg@double = 150
     % Hip P Gain (N*m/rad)
     kp_hip@double = 2000
     % Hip D Gain (N*m*s/rad)
-    kd_hip@double = 75
+    kd_hip@double = 70
     % Left A Motor Torque Scaling Factor
-    s_l_A@double = 1
+    s_l_A@double = 0.9
     % Left B Motor Torque Scaling Factor
-    s_l_B@double = 1.1
+    s_l_B@double = 1.17
     % Right A Motor Torque Scaling Factor
-    s_r_A@double = 1
+    s_r_A@double = 1.08
     % Right B Motor Torque Scaling Factor
-    s_r_B@double = 1.15
+    s_r_B@double = 1.13
     % Lower Force Threshold (N)
     thres_lo@double = 125
     % Upper Force Threshold (N)
@@ -267,7 +267,7 @@ classdef MikhailController < Controller
 
       % Target stance leg length (cubic extension in second half of stance)
       [l_st, dl_st] = cubic_interp(...
-        [0, s0, 0.5, 1], ...
+        [0, s0, 0.4, 1], ...
         [obj.l_st_last, obj.l0_leg, obj.l0_leg, obj.l0_leg + l_ext], ...
         [obj.dl_st_last/ds, 0, 0, 0], s, ds);
 
@@ -472,12 +472,12 @@ classdef MikhailController < Controller
 
       case GaitMode.Circle
         % Robust stand/walk mode
-        dx_cmd = 0.6*dx_cmd;
+        dx_cmd = 0.75*dx_cmd;
         dy_cmd = 0.2*dy_cmd;
 
       case GaitMode.Triangle
         % Fast walk/run mode
-        dx_cmd = 1.25*dx_cmd;
+        dx_cmd = 1.5*dx_cmd;
         dy_cmd = 0.2*dy_cmd;
 
       otherwise % GaitMode.Square
