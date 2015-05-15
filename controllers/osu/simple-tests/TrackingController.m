@@ -10,13 +10,13 @@ classdef TrackingController < Controller
     % Leg D Gain (N*m*s/rad)
     kd_leg@double = 150
     % Left A Motor Torque Scaling Factor
-    s_l_A@double = 1
+    s_l_A@double = 0.9
     % Left B Motor Torque Scaling Factor
-    s_l_B@double = 1.1
+    s_l_B@double = 1.17
     % Right A Motor Torque Scaling Factor
-    s_r_A@double = 1
+    s_r_A@double = 1.08
     % Right B Motor Torque Scaling Factor
-    s_r_B@double = 1.15
+    s_r_B@double = 1.13
     % Hip P Gain (N*m/rad)
     kp_hip@double = 2000
     % Hip D Gain (N*m*s/rad)
