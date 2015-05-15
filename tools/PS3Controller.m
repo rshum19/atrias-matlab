@@ -61,10 +61,10 @@ classdef PS3Controller < handle
     %UPDATE Update PS3 controller object with controller data.
 
       % Update joysticks
-      obj.leftStickX = axes(1);
-      obj.leftStickY = axes(2);
-      obj.rightStickX = axes(3);
-      obj.rightStickY = axes(4);
+      obj.leftStickX = -axes(1);
+      obj.leftStickY = -axes(2);
+      obj.rightStickX = -axes(3);
+      obj.rightStickY = -axes(4);
 
       % Convert button vector to logical
       buttons = logical(buttons);

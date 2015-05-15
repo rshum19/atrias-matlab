@@ -51,6 +51,10 @@ classdef MikhailController < Controller
     y0_offset@double = 0.15
     % Hip Offset Gain
     y0_gain@double = 0
+    % Nominal Leg Length (m)
+    l0_leg@double = 0.9
+    % Swing Leg Retraction (m)
+    l_ret@double = 0.18
     % Leg Extension Gain (m)
     l_ext_gain@double = 0.018
   end % properties
@@ -71,10 +75,6 @@ classdef MikhailController < Controller
     y_offset@double = -0.014
     % Z Center of Mass Offset (m)
     z_offset@double = 0.1179
-    % Nominal Leg Length (m)
-    l0_leg@double = 0.9
-    % Swing Leg Retraction (m)
-    l_ret@double = 0.15
     % Estimated X position (m)
     x_est@double = 0
     % Estimated Y position (m)
@@ -298,10 +298,11 @@ classdef MikhailController < Controller
       x_sw_tgt = atans(x_sw_tgt, 1, 1);
 
       % Target swing leg cartesian position and velocity
+      % TODO: remove zero*
       [x_sw, dx_sw] = cubic_interp(...
         [0, 0.8], ...
         [obj.x_sw_last, x_sw_tgt], ...
-        [obj.dx_sw_last/ds, -obj.dx_est/ds], s, ds);
+        [0*obj.dx_sw_last/ds, -obj.dx_est/ds], s, ds);
 
       % Target swing leg angle and velocity
       q_sw = real(pi - q_pitch - asin((x_sw + x_t)/l_sw));
@@ -323,10 +324,13 @@ classdef MikhailController < Controller
       % y_sw_tgt = atans(y_sw_tgt, 1, 0.5);
       
       % Target swing leg cartesian position and velocity
-      [y_sw, dy_sw] = cubic_interp(...
-        [0, 0.8], ...
-        [obj.y_sw_last, y_sw_tgt], ...
-        [0, 0], s, ds);
+      % [y_sw, dy_sw] = cubic_interp(...
+      %   [0, 0.8], ...
+      %   [obj.y_sw_last, y_sw_tgt], ...
+      %   [0, 0], s, ds);
+    
+      y_sw = y_sw_tgt;
+      dy_sw = 0;
       
       % Target swing hip angle and velocity
       L = sqrt(obj.l0_leg^2 + l_sw_h^2);
@@ -365,7 +369,8 @@ classdef MikhailController < Controller
       u_sw_h = max(s_st, s_sw)*obj.m_leg*obj.g*l_sw_h;
 
       % Swing leg hip PD controller
-      u_sw_h = u_sw_h + (1 - s_sw)*(q_sw_h_tgt - q_sw_h)*obj.kp_hip + (dq_sw_h_tgt - dq_sw_h)*obj.kd_hip;
+      % TODO: remove s scaling when trajectory is used
+      u_sw_h = u_sw_h + s*(1 - s_sw)*(q_sw_h_tgt - q_sw_h)*obj.kp_hip + (dq_sw_h_tgt - dq_sw_h)*obj.kd_hip;
 
       % Torso stabilization PD controller scaled based on leg force
       u_st_h = u_st_h + s_st*(obj.kp_hip*(q_roll - 0) + obj.kd_hip*(dq_roll - 0));
