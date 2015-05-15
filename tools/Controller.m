@@ -4,7 +4,7 @@ classdef Controller < matlab.System
   % PUBLIC PROPERTIES =====================================================
   properties (Logical = true)
     % Simulation flag
-    isSim@logical = true
+    isSim@logical = false
   end % properties
 
   properties

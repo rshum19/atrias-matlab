@@ -12,9 +12,9 @@ classdef MikhailController < Controller
     % Stance Leg P Gain (N*m/rad)
     kp_st_leg@double = 3000
     % Stance Leg D Gain (N*m*s/rad)
-    kd_st_leg@double = 150
+    kd_st_leg@double = 225
     % Swing Leg P Gain (N*m/rad)
-    kp_sw_leg@double = 3000
+    kp_sw_leg@double = 2500
     % Swing Leg D Gain (N*m*s/rad)
     kd_sw_leg@double = 150
     % Hip P Gain (N*m/rad)
@@ -52,7 +52,7 @@ classdef MikhailController < Controller
     % Hip Offset Gain
     y0_gain@double = 0
     % Leg Extension Gain (m)
-    l_ext_gain@double = 0.02
+    l_ext_gain@double = 0.018
   end % properties
 
   % PROTECTED PROPERTIES ==================================================
@@ -248,7 +248,7 @@ classdef MikhailController < Controller
       obj.y_est = obj.y_est + obj.sampleInterval*(sin(obj.q_yaw)*obj.dx_est + cos(obj.q_yaw)*obj.dy_est);
 
       % Step duration
-      t_step = obj.t0_step - clamp(obj.t_gain*abs(obj.dx_est), 0, 0.04);
+      t_step = obj.t0_step - clamp(obj.t_gain*abs(obj.dx_est), 0, 0.1);
       
       % Define a time variant parameter normalized between 0 and 1
       s = clamp(obj.t/t_step, 0, Inf);
@@ -263,13 +263,13 @@ classdef MikhailController < Controller
       l_ext = obj.l_ext_gain*abs(obj.dx_tgt)*(sign(obj.dx_tgt) == sign(obj.dx_est));
 
       % Clamp stance leg length to avoid mechanical limits
-      l_ext = clamp(l_ext, 0, 0.95 - obj.l0_leg);
+      l_ext = clamp(l_ext, 0, 0.96 - obj.l0_leg);
 
       % Target stance leg length (cubic extension in second half of stance)
       [l_st, dl_st] = cubic_interp(...
         [0, s0, 0.5, 1], ...
         [obj.l_st_last, obj.l0_leg, obj.l0_leg, obj.l0_leg + l_ext], ...
-        [obj.dl_st_last/ds, 0, 0, 2*l_ext], s, ds);
+        [obj.dl_st_last/ds, 0, 0, 0], s, ds);
 
       % Target stance leg angle and velocity (zero hip torque)
       q_st = mean([q_st_lA q_st_lB]);
@@ -285,7 +285,7 @@ classdef MikhailController < Controller
       
       % Target swing leg length and velocity
       [l_sw, dl_sw] = cubic_interp(...
-        [0, 0.4, 1 + s0], ...
+        [0, 0.35, 1 + s0], ...
         [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], ...
         [obj.dl_sw_last/ds, 0, 0], s, ds);
 
@@ -295,7 +295,7 @@ classdef MikhailController < Controller
         obj.dx_err_d_gain*(obj.dx_est - obj.dx_est_last);
       
       % Smooth clamp target swing leg foot placement
-      % x_sw_tgt = atans(x_sw_tgt, 1, 0.5);
+      x_sw_tgt = atans(x_sw_tgt, 1, 1);
 
       % Target swing leg cartesian position and velocity
       [x_sw, dx_sw] = cubic_interp(...
@@ -491,8 +491,8 @@ classdef MikhailController < Controller
         obj.gaitMode = GaitMode.Triangle;
         % dy_cmd = 0.2*((obj.runTime >= 15) - 2*(obj.runTime >= 30));
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
-        % dx_cmd = -clamp((obj.runTime - 0)/5, 0, 3);
-        dx_cmd = -2.5*(obj.runTime >= 3);
+        % dx_cmd = clamp(0.25*floor(obj.runTime/5), 0, 3);
+        dx_cmd = 3*(obj.runTime >= 5);
       end % if
       
       % Parse right lower trigger for turbo mode
@@ -502,13 +502,13 @@ classdef MikhailController < Controller
       
       % Parse left lower trigger for auto speed regulation mode
       if obj.ps3.l2.value
-        if abs(obj.dy_est_avg) >= 0.03
+        if abs(obj.dy_est_avg) >= 0.05
           dx_cmd = dx_cmd/2;
         end % if
       end % if
 
       % Filter target X velocity command
-      alpha_dx = obj.sampleInterval/(3 + obj.sampleInterval);
+      alpha_dx = obj.sampleInterval/(2 + obj.sampleInterval);
       obj.dx_tgt = obj.dx_tgt + alpha_dx*(dx_cmd - obj.dx_tgt);
 
       % Filter target Y velocity command
