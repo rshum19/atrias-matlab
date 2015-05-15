@@ -1,5 +1,27 @@
 
   <Object type="Desktop.Xpc.Designer.InstrumentPanel, Desktop.Xpc.Designer, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="InstrumentPanel" children="Controls">
+    <Object type="System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="GroupBox17" children="Controls">
+      <Object type="MW.Instruments.LED, mwio, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="LED66" children="Controls">
+        <Property name="OutputValue">0</Property>
+        <Property name="BindingSrcObject" />
+        <Property name="BindingSrcType">Signal</Property>
+        <Property name="BindingSrcPath">atrias_system/DAQ/Thermal_Indicator</Property>
+        <Property name="TargetName">TargetPC1</Property>
+        <Property name="Indicator">
+          <Property name="ColorActive">Red</Property>
+          <Property name="ColorInactive">Black</Property>
+        </Property>
+        <Property name="Size">144, 143</Property>
+        <Property name="Location">33, 34</Property>
+        <Property name="Name">LED66</Property>
+      </Object>
+      <Property name="Text">Thermal Limits</Property>
+      <Property name="UseCompatibleTextRendering">True</Property>
+      <Property name="Font">Segoe UI, 10pt, style=Bold</Property>
+      <Property name="Location">1047, 515</Property>
+      <Property name="Name">GroupBox17</Property>
+      <Property name="Size">205, 196</Property>
+    </Object>
     <Object type="System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="GroupBox16" children="Controls">
       <Object type="System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="Label134" children="Controls">
         <Property name="TextAlign">MiddleLeft</Property>
