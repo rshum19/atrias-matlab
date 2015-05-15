@@ -75,17 +75,17 @@ RIGHT_HIP_CALIB_VAL = 7028;  % Calibration encoder value in ticks
 LEFT_HIP_CALIB_VAL = 1032;  % Calibration encoder value in ticks
 RIGHT_HIP_CALIB_POS = -0.1066;  %Calibration angle in radians
 LEFT_HIP_CALIB_POS = 0.0422; %Calibration angle in radians
-MTR_MAX_CURRENT = 155.0; %Maximum motor current for scaling
-MTR_MAX_CONT_CURRENT = 100.0; %Maximum continuous amplifier current
+MTR_MAX_CONT_CURRENT = 120.0; %Maximum continuous amplifier current (RMS Amps)
+MTR_MAX_CURRENT = MTR_MAX_CONT_CURRENT*2^0.5; %Maximum motor current for scaling (Amps)
 MTR_HIP_MAX_CURRENT = 60.0; %Maximum hip motor current for scaling
 BOOM_LENGTH = 2.006; % meters, center of rotation to hip center
 BOOM_X_METERS_PER_TICK = -0.00000937522094511213193198; %The meters of boom motion per encoder tick. This is calculated from the boom's length, the number of encoder ticks per encoder revolution, and the gear ratio between the boom and the encoder.
-LEG_MTR_MAX_TORQUE = MTR_MAX_CURRENT*LEG_MOTOR_CONSTANT*LEG_MTR_GEAR_RATIO;
+LEG_MTR_MAX_TORQUE = MTR_MAX_CONT_CURRENT*LEG_MOTOR_CONSTANT*LEG_MTR_GEAR_RATIO;
 LEG_MTR_MAX_CONT_TORQUE = MTR_MAX_CONT_CURRENT*LEG_MOTOR_CONSTANT*LEG_MTR_GEAR_RATIO;
 LEG_MTR_MAX_VELOCITY = 393.755 / LEG_MTR_GEAR_RATIO; % Rad/s
 HIP_MTR_MAX_TORQUE = MTR_HIP_MAX_CURRENT*HIP_MOTOR_CONSTANT*HIP_MTR_GEAR_RATIO;
-LEG_CURRENT_LIMIT = 100.0; % Maximum motor current for testing
-HIP_CURRENT_LIMIT = 60.0;  % Maximum motor current for testing
+LEG_CURRENT_LIMIT = MTR_MAX_CONT_CURRENT; % Maximum motor current for testing
+HIP_CURRENT_LIMIT = MTR_HIP_MAX_CURRENT;  % Maximum motor current for testing
 
 % Right Leg (A/B flipped) (TRAN == motor)
 LEG1_LEG_A_CALIB_VAL   = 265016179;      %Calibration encoder value in ticks
