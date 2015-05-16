@@ -32,11 +32,11 @@ MEDULLA_STATE_RESET = 6;
 
 % Commands sent from the Instrument Panel/GUI to the system.
 % These become parameters for the Simulink model
-gui_enable_cmd  = 0; % Whether to enable the robot
-gui_disable_cmd = 0; % Whether to disable the robot
-gui_reset_cmd   = 0; % Whether to reset the robot (after a E-Stop)
-gui_exit_cmd    = 0; % Whether to stop the model's exection (gracefully)
-imu_reset_cmd   = 0; % Whether to reset the IMU system
+gui_enable_cmd  = Simulink.Parameter; gui_enable_cmd.CoderInfo.StorageClass  = 'SimulinkGlobal'; gui_enable_cmd.Value  = 0; % Whether to enable the robot
+gui_disable_cmd = Simulink.Parameter; gui_disable_cmd.CoderInfo.StorageClass = 'SimulinkGlobal'; gui_disable_cmd.Value = 0; % Whether to disable the robot
+gui_reset_cmd   = Simulink.Parameter; gui_reset_cmd.CoderInfo.StorageClass   = 'SimulinkGlobal'; gui_reset_cmd.Value   = 0; % Whether to reset the robot (after a E-Stop)
+gui_exit_cmd    = Simulink.Parameter; gui_exit_cmd.CoderInfo.StorageClass    = 'SimulinkGlobal'; gui_exit_cmd.Value    = 0; % Whether to stop the model's exection (gracefully)
+imu_reset_cmd   = Simulink.Parameter; imu_reset_cmd.CoderInfo.StorageClass   = 'SimulinkGlobal'; imu_reset_cmd.Value   = 0; % Whether to reset the IMU system
 
 % Low-level Medulla parameters
 MEDULLA_ADC_OFFSET_COUNTS = 172;  % Ticks
