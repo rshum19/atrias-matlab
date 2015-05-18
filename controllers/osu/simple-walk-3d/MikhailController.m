@@ -14,13 +14,13 @@ classdef MikhailController < Controller
     % Stance Leg D Gain (N*m*s/rad)
     kd_st_leg@double = 220
     % Swing Leg P Gain (N*m/rad)
-    kp_sw_leg@double = 2800
+    kp_sw_leg@double = 2500
     % Swing Leg D Gain (N*m*s/rad)
     kd_sw_leg@double = 150
     % Hip P Gain (N*m/rad)
-    kp_hip@double = 2000
+    kp_hip@double = 1800
     % Hip D Gain (N*m*s/rad)
-    kd_hip@double = 70
+    kd_hip@double = 60
     % Left A Motor Torque Scaling Factor
     s_l_A@double = 0.9
     % Left B Motor Torque Scaling Factor
@@ -50,24 +50,24 @@ classdef MikhailController < Controller
     % Hip Offset (m)
     y0_offset@double = 0.15
     % Hip Offset Gain
-    y0_gain@double = 0
+    y0_gain@double = 0.02 % TODO: 0 for robust mode and 0.02 for running
     % Nominal Leg Length (m)
     l0_leg@double = 0.9
     % Swing Leg Retraction (m)
     l_ret@double = 0.18
     % Leg Extension Gain (m)
-    l_ext_gain@double = 0.018
+    l_ext_gain@double = 0.02
 
     % Double support overlap
-    s_overlap@double = 0.35
+    s_overlap@double = 0.37
     % Test impulse control
     isTest1@logical = false
     % Test cubic hip trajectory
     isTest2@logical = false
     % Test using last swing leg dx
-    isTest3@logical = false
+    isTest3@logical = true
     % Test using ground speed matching
-    isTest4@logical = false
+    isTest4@logical = true % TODO: TRUE for walking, FALSE for robust standing
   end % properties
 
   % PROTECTED PROPERTIES ==================================================
@@ -272,15 +272,15 @@ classdef MikhailController < Controller
       obj.y_est = obj.y_est + obj.sampleInterval*(sin(obj.q_yaw)*obj.dx_est + cos(obj.q_yaw)*obj.dy_est);
 
       % Step duration
-      t_step = obj.t0_step - clamp(obj.t_gain*abs(obj.dx_est), 0, 0.1);
+      t_step = obj.t0_step - clamp(obj.t_gain*abs(obj.dx_est_last), 0, 0.1);
 
       % Define a time variant parameter normalized between 0 and 1
       s = clamp(obj.t/t_step, 0, 1);
       ds = 1/t_step;
 
       % Phase overlap (double to single support transition)
-      s0 = cubic_interp([0, 2], [obj.s_overlap, 0], [0, 0], abs(obj.dx_est), 0);
-
+      s0 = cubic_interp([0, 2], [obj.s_overlap, 0], [0, 0], abs(obj.dx_est_last), 0);
+	  
       % Compute Stance Leg Target Positions -------------------------------
 
       % Stance leg extension policy for energy injection
@@ -295,7 +295,7 @@ classdef MikhailController < Controller
         [obj.l_st_last, obj.l0_leg, obj.l0_leg, obj.l0_leg + l_ext], ...
         [obj.dl_st_last/ds, 0, 0, 0], s, ds);
 
-      % TODO: Impulse control needs enable disable button.
+      % TOD: Impulse control
       if obj.isTest2
         obj.Jz_tgt = 1.05*s*obj.m_total*obj.g*t_step;
         l_st = l_st + clamp(0.002*(obj.Jz_tgt - obj.Jz)*(abs(obj.dx_est) > 1), -0.02, 0.02);
