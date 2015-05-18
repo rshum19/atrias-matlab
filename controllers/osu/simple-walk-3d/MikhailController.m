@@ -57,6 +57,17 @@ classdef MikhailController < Controller
     l_ret@double = 0.18
     % Leg Extension Gain (m)
     l_ext_gain@double = 0.018
+
+    % Double support overlap
+    s_overlap@double = 0.35
+    % Test impulse control
+    isTest1@logical = false
+    % Test cubic hip trajectory
+    isTest2@logical = false
+    % Test using last swing leg dx
+    isTest3@logical = false
+    % Test using ground speed matching
+    isTest4@logical = false
   end % properties
 
   % PROTECTED PROPERTIES ==================================================
@@ -115,6 +126,11 @@ classdef MikhailController < Controller
     dy_sw_last@double = 0
     % Storage for passing signals to output function
     output@double = zeros(1,16)
+
+    % TODO
+    % Z impulse ()
+    Jz@double = 0
+    Jz_tgt@double = 0
   end % properties
 
   % CONSTANT PROPERTIES ===================================================
@@ -168,6 +184,9 @@ classdef MikhailController < Controller
       obj.dl_st_last = 0;
       obj.l_sw_last = obj.l0_leg;
       obj.dl_sw_last = 0;
+
+      % TODO
+      obj.Jz = 0;
     end % userSetup
 
     function userOut = userOutput(obj)
@@ -175,6 +194,8 @@ classdef MikhailController < Controller
 
       userOut = [...
         obj.output, ...
+        obj.Jz/100, ...
+        obj.Jz_tgt/100, ...
         ...obj.x_est, obj.y_est, ...
         obj.dx_est, obj.dy_est, ...
         obj.dx_tgt, obj.dy_tgt];
@@ -231,10 +252,13 @@ classdef MikhailController < Controller
       % Vertical ground reaction forces computed from spring deflections
       fz_st = 2*obj.ks_leg*(cos(q_pitch + q_st_lB)*(q_st_mA - q_st_lA) - cos(q_pitch + q_st_lA)*(q_st_mB - q_st_lB))/sin(q_st_lA - q_st_lB);
       fz_sw = 2*obj.ks_leg*(cos(q_pitch + q_sw_lB)*(q_sw_mA - q_sw_lA) - cos(q_pitch + q_sw_lA)*(q_sw_mB - q_sw_lB))/sin(q_sw_lA - q_sw_lB);
-      
+
       % Scaling factors representing a normalized vertical GRF
       s_st = scaleFactor(fz_st, obj.thres_lo, obj.thres_hi);
       s_sw = scaleFactor(fz_sw, obj.thres_lo, obj.thres_hi);
+
+      % Vertical ground impulse
+      obj.Jz = obj.Jz + s_st*fz_st*obj.sampleInterval + s_sw*fz_sw*obj.sampleInterval;
 
       % Compute smoothing factor based on confidence leg is on the ground
       alpha = s_st*obj.sampleInterval/(obj.tau + obj.sampleInterval);
@@ -249,14 +273,14 @@ classdef MikhailController < Controller
 
       % Step duration
       t_step = obj.t0_step - clamp(obj.t_gain*abs(obj.dx_est), 0, 0.1);
-      
+
       % Define a time variant parameter normalized between 0 and 1
-      s = clamp(obj.t/t_step, 0, Inf);
+      s = clamp(obj.t/t_step, 0, 1);
       ds = 1/t_step;
 
       % Phase overlap (double to single support transition)
-      s0 = cubic_interp([0, 2], [0.37, 0], [0, 0], abs(obj.dx_est), 0);
-      
+      s0 = cubic_interp([0, 2], [obj.s_overlap, 0], [0, 0], abs(obj.dx_est), 0);
+
       % Compute Stance Leg Target Positions -------------------------------
 
       % Stance leg extension policy for energy injection
@@ -271,10 +295,16 @@ classdef MikhailController < Controller
         [obj.l_st_last, obj.l0_leg, obj.l0_leg, obj.l0_leg + l_ext], ...
         [obj.dl_st_last/ds, 0, 0, 0], s, ds);
 
+      % TODO: Impulse control needs enable disable button.
+      if obj.isTest2
+        obj.Jz_tgt = 1.05*s*obj.m_total*obj.g*t_step;
+        l_st = l_st + clamp(0.002*(obj.Jz_tgt - obj.Jz)*(abs(obj.dx_est) > 1), -0.02, 0.02);
+      end % if
+
       % Target stance leg angle and velocity (zero hip torque)
       q_st = mean([q_st_lA q_st_lB]);
       dq_st = mean([dq_st_lA dq_st_lB]);
-      
+
       % Target stance leg actuator angles and velocities
       q_st_mA_tgt = real(q_st - acos(l_st));
       q_st_mB_tgt = real(q_st + acos(l_st));
@@ -282,10 +312,10 @@ classdef MikhailController < Controller
       dq_st_mB_tgt = real(dq_st - dl_st/sqrt(1 - l_st^2));
 
       % Compute Swing Leg Target Positions --------------------------------
-      
+
       % Target swing leg length and velocity
       [l_sw, dl_sw] = cubic_interp(...
-        [0, 0.35, 1 + s0], ...
+        [0, 0.35 + s0/2, 1 + s0], ...
         [obj.l_sw_last, obj.l0_leg - obj.l_ret, obj.l0_leg], ...
         [obj.dl_sw_last/ds, 0, 0], s, ds);
 
@@ -293,16 +323,16 @@ classdef MikhailController < Controller
       x_sw_tgt = obj.dx_gain*obj.dx_est + ...
         obj.dx_err_p_gain*(obj.dx_est - obj.dx_tgt) + ...
         obj.dx_err_d_gain*(obj.dx_est - obj.dx_est_last);
-      
+
       % Smooth clamp target swing leg foot placement
       x_sw_tgt = atans(x_sw_tgt, 1, 1);
 
       % Target swing leg cartesian position and velocity
-      % TODO: remove zero*
+      % TODO: set second velocity term to zero for robust mode
       [x_sw, dx_sw] = cubic_interp(...
         [0, 0.8], ...
         [obj.x_sw_last, x_sw_tgt], ...
-        [0*obj.dx_sw_last/ds, -obj.dx_est/ds], s, ds);
+        [obj.dx_sw_last/ds, -obj.dx_est/ds*obj.isTest4], s, ds);
 
       % Target swing leg angle and velocity
       q_sw = real(pi - q_pitch - asin((x_sw + x_t)/l_sw));
@@ -322,21 +352,22 @@ classdef MikhailController < Controller
 
       % Smooth clamp target swing leg foot placement
       % y_sw_tgt = atans(y_sw_tgt, 1, 0.5);
-      
+
       % Target swing leg cartesian position and velocity
-      % [y_sw, dy_sw] = cubic_interp(...
-      %   [0, 0.8], ...
-      %   [obj.y_sw_last, y_sw_tgt], ...
-      %   [0, 0], s, ds);
-    
-      y_sw = y_sw_tgt;
-      dy_sw = 0;
-      
+      if obj.isTest2
+        [y_sw, dy_sw] = cubic_interp(...
+          [0, 0.8], ...
+          [obj.y_sw_last, y_sw_tgt], ...
+          [obj.dy_sw_last, 0], s, ds);
+      else
+        y_sw = y_sw_tgt; dy_sw = 0;
+      end % if
+
       % Target swing hip angle and velocity
       L = sqrt(obj.l0_leg^2 + l_sw_h^2);
       q_sw_h_tgt = real(asin((y_sw + y_t)/L) - asin(l_sw_h/L) - q_roll);
       dq_sw_h_tgt = real((dy_sw + dy_t)/(L*sqrt(1 - (y_sw + y_t)^2/L^2)) - dq_roll);
-      
+
       % Clamp swing hip angles to avoid mechanical limits
       q_sw_h_tgt = clamp(q_sw_h_tgt, -0.13*obj.stanceLeg, 0.35*obj.stanceLeg);
 
@@ -345,7 +376,7 @@ classdef MikhailController < Controller
       % Scale stance leg gains based on force
       kp = s_st*obj.kp_st_leg + (1 - s_st)*obj.kp_sw_leg;
       kd = s_st*obj.kd_st_leg + (1 - s_st)*obj.kd_sw_leg;
-      
+
       % Stance leg actuator torques from PD controller
       u_st_A = obj.f_c*sign(dq_st_mA_tgt) + obj.f_v*dq_st_mA_tgt + kp*(q_st_mA_tgt - q_st_mA) + kd*(dq_st_mA_tgt - dq_st_mA);
       u_st_B = obj.f_c*sign(dq_st_mB_tgt) + obj.f_v*dq_st_mB_tgt + kp*(q_st_mB_tgt - q_st_mB) + kd*(dq_st_mB_tgt - dq_st_mB);
@@ -353,11 +384,11 @@ classdef MikhailController < Controller
       % Scale swing leg gains based on force
       kp = s_sw*obj.kp_st_leg + (1 - s_sw)*obj.kp_sw_leg;
       kd = s_sw*obj.kd_st_leg + (1 - s_sw)*obj.kd_sw_leg;
-      
+
       % Swing leg actuator torques from PD controller
       u_sw_A = obj.f_c*sign(dq_sw_mA_tgt) + obj.f_v*dq_sw_mA_tgt + kp*(q_sw_mA_tgt - q_sw_mA) + kd*(dq_sw_mA_tgt - dq_sw_mA);
       u_sw_B = obj.f_c*sign(dq_sw_mB_tgt) + obj.f_v*dq_sw_mB_tgt + kp*(q_sw_mB_tgt - q_sw_mB) + kd*(dq_sw_mB_tgt - dq_sw_mB);
-      
+
       % Torso stabilization PD controller scaled based on leg force
       u_st_A = u_st_A + s_st*(obj.kp_st_leg*(q_pitch - 0) + obj.kd_st_leg*(dq_pitch - 0));
       u_st_B = u_st_B + s_st*(obj.kp_st_leg*(q_pitch - 0) + obj.kd_st_leg*(dq_pitch - 0));
@@ -369,8 +400,12 @@ classdef MikhailController < Controller
       u_sw_h = max(s_st, s_sw)*obj.m_leg*obj.g*l_sw_h;
 
       % Swing leg hip PD controller
-      % TODO: remove s scaling when trajectory is used
-      u_sw_h = u_sw_h + s*(1 - s_sw)*(q_sw_h_tgt - q_sw_h)*obj.kp_hip + (dq_sw_h_tgt - dq_sw_h)*obj.kd_hip;
+      % TODO: remove s scaling when trajectory is re-enabled
+      if obj.isTest2
+        u_sw_h = u_sw_h + (1 - s_sw)*obj.kp_hip*(q_sw_h_tgt - q_sw_h) + obj.kd_hip*(dq_sw_h_tgt - dq_sw_h);
+      else
+        u_sw_h = u_sw_h + s*(1 - s_sw)*obj.kp_hip*(q_sw_h_tgt - q_sw_h) + obj.kd_hip*(dq_sw_h_tgt - dq_sw_h);
+      end % if
 
       % Torso stabilization PD controller scaled based on leg force
       u_st_h = u_st_h + s_st*(obj.kp_hip*(q_roll - 0) + obj.kd_hip*(dq_roll - 0));
@@ -385,9 +420,18 @@ classdef MikhailController < Controller
         obj.x_st_last = x_sw;
         obj.dx_st_last = dx_sw;
         obj.x_sw_last = l_st*sin(q_pitch + q_st) - x_t;
-        obj.dx_sw_last = sin(q_pitch + q_st)*dl_st - dx_t + cos(q_pitch + q_st)*l_st*(dq_pitch + dq_st);
+
+        if obj.isTest3
+          obj.dx_sw_last = -obj.dx_est; % TODO: for running
+          % obj.dx_sw_last = sin(q_pitch + q_st)*dl_st - dx_t + cos(q_pitch + q_st)*l_st*(dq_pitch + dq_st);
+        else
+          obj.dx_sw_last = 0; % TODO: for robust standing
+        end
+
         obj.y_sw_last = L*sin(q_roll + q_st_h + asin(l_st_h/L)) - y_t;
-        obj.dy_sw_last = L*cos(asin(l_st_h/L) + q_roll + q_st_h)*(dq_roll + dq_st_h);
+        obj.dy_sw_last = 0;
+        % obj.dy_sw_last = -obj.dy_est;
+        % obj.dy_sw_last = L*cos(asin(l_st_h/L) + q_roll + q_st_h)*(dq_roll + dq_st_h);
         obj.l_st_last = l_sw;
         obj.dl_st_last = dl_sw;
         obj.l_sw_last = l_st;
@@ -395,6 +439,9 @@ classdef MikhailController < Controller
         obj.dy_est_avg = (obj.dy_est + obj.dy_est_last)/2;
         obj.dx_est_last = obj.dx_est;
         obj.dy_est_last = obj.dy_est;
+
+        % TODO
+        obj.Jz = 0;
 
         % Reset time since last switch
         obj.t = 0;
@@ -417,13 +464,13 @@ classdef MikhailController < Controller
       dq_sw_m = (dq_sw_mA + dq_sw_mB)/2;
       q_sw_l = (q_sw_lA + q_sw_lB)/2;
       dq_sw_l = (dq_sw_lA + dq_sw_lB)/2;
-      
-      % Store signals for logging
+
+      % Store signals in object for logging
       obj.output = [l_st, l_st_m, l_st_l, q_st, q_st_m, q_st_l, ...
         l_sw, l_sw_m, l_sw_l, q_sw, q_sw_m, q_sw_l, ...
         q_sw_h_tgt, q_sw_h, ...
-        s_st*fz_st/100, s_sw*fz_sw/100]; 
-        
+        s_st*fz_st/100, s_sw*fz_sw/100];
+
       % Set commanded torque vector
       if obj.stanceLeg == 1 % Left
         u = [obj.s_r_B*u_sw_B, obj.s_r_A*u_sw_A, u_sw_h, ...
@@ -497,14 +544,14 @@ classdef MikhailController < Controller
         % dy_cmd = 0.2*((obj.runTime >= 15) - 2*(obj.runTime >= 30));
         % dx_cmd = 1.5*round(sin(obj.runTime*2*pi/15));
         % dx_cmd = clamp(0.25*floor(obj.runTime/5), 0, 3);
-        dx_cmd = 3*(obj.runTime >= 5);
+        dx_cmd = 3*(obj.runTime >= 15);
       end % if
-      
+
       % Parse right lower trigger for turbo mode
       if obj.ps3.r2.value
         dx_cmd = 2*dx_cmd;
       end % if
-      
+
       % Parse left lower trigger for auto speed regulation mode
       if obj.ps3.l2.value
         if abs(obj.dy_est_avg) >= 0.05
