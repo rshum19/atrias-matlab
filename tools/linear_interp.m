@@ -1,4 +1,4 @@
-function [y, dy] = linear_interp(x0, y0, x, dx)
+function [y, dy] = linear_interp(x, dx, x0, y0)
 %LINEAR_INTERP Linear interpolation between values.
 %
 % Copyright 2015 Mikhail S. Jones
