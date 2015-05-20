@@ -1,4 +1,4 @@
-function [y, dy] = cubi_interp(x, dx, x0, y0, dy0)
+function [y, dy] = cubic_interp(x, dx, x0, y0, dy0)
 %CUBIC_INTERP Cubic interpolation between values.
 %
 % Copyright 2015 Mikhail S. Jones
