@@ -74,7 +74,7 @@ MTR_MAX_TEMP = 118; % Maximum motor temperature, degrees Celsius
 
 % Calibrations done at OSU
 RIGHT_HIP_CALIB_VAL = 7028;  % Calibration encoder value in ticks
-LEFT_HIP_CALIB_VAL = 1032;  % Calibration encoder value in ticks
+LEFT_HIP_CALIB_VAL = 1037;  % Calibration encoder value in ticks
 RIGHT_HIP_CALIB_POS = -0.1066;  %Calibration angle in radians
 LEFT_HIP_CALIB_POS = 0.0422; %Calibration angle in radians
 MTR_MAX_CONT_CURRENT = 120.0; %Maximum continuous amplifier current (RMS Amps)
@@ -104,8 +104,8 @@ LEG1_MOTOR_B_DIRECTION = 1.0;
 % Left Leg (A/B flipped) (TRAN == motor)
 LEG2_LEG_A_CALIB_VAL   = 264841319;      %Calibration encoder value in ticks
 LEG2_TRAN_A_CALIB_VAL  = 142260475;      %Calibration encoder value in ticks
-LEG2_LEG_B_CALIB_VAL   = 261930868;      %Calibration encoder value in ticks
-LEG2_TRAN_B_CALIB_VAL  = 142165657;      %Calibration encoder value in ticks
+LEG2_LEG_B_CALIB_VAL   = 261056380;      %Calibration encoder value in ticks
+LEG2_TRAN_B_CALIB_VAL  = 142331860;      %Calibration encoder value in ticks
 LEG2_LEG_A_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG2_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG2_LEG_B_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
