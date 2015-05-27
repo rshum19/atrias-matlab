@@ -24,7 +24,14 @@ function fix_sampletime()
 
 	disp('Waiting for the model to stop')
 	% We have to poll the target's status to detect when the model is stopped
+	startTime = tic();
 	while ~strcmp(tg.Status, 'stopped')
+		% Check that we haven't timed out.
+		% If we've timed out, throw an error
+		if toc(startTime) > 5
+			error('Model failed to restart! Check communication.')
+		end
+
 		pause(.05) % This wait is arbitrary.
 	end
 	disp('Model stopped. Resetting stop command')
