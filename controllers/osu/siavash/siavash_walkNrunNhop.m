@@ -21,7 +21,7 @@ classdef  siavash_walkNrunNhop < Controller
         T0@double=.35;                  % Step period (T0)
         k_time@double=0.015;            % Period reduction gain (k_time)
         kDx@double=.1;                    % Foot placement forward derivative gain (kDx)
-        kDy@double=.05;                    % Foot placement lateral derivative gain (kDy)
+        kDy@double=0;                    % Foot placement lateral derivative gain (kDy)
         
         xss@double=0;                   % Nominal sagittal toe to toe distance  (xss)
         yss@double=.18;                 % Nominal lateral toe to toe distance (yss)
@@ -43,14 +43,14 @@ classdef  siavash_walkNrunNhop < Controller
         kd_hip@double = 75;      % Hip motor differential gain (N*m*s/rad)
         
         legRetPerc@double=40;    % Percentage of time for retraction (legRetPerc)
-        k_Energy@double=.02;     % Energy injection gain (k_Energy)
+        k_Energy@double=.021;     % Energy injection gain (k_Energy)
         
         ll_dev@double=.09;       % Stepdown pushoff correction (ll_dev)
         
         k_hop@double=1;          % Scaling for aerial phase (k_hop)
         
          
-        mu_s@double=0.35;          %Static friction coefficient (mu_s)
+        mu_s@double=0.5;          %Static friction coefficient (mu_s)
         
         isAngular@logical=false; % Use angular momentum control in flight
         isYawTraj@logical=true; % Use yaw trajectory minimizer
@@ -565,7 +565,7 @@ classdef  siavash_walkNrunNhop < Controller
             lmin=clamp(l0-obj.lret...
                 -.02*(obj.gaitMode == GaitMode_S.Stand)...
                 -.08*(obj.gaitMode == GaitMode_S.Obstacle)...
-                -.02*abs(obj.dx_des)+0*1.7*lpo-0*.1*(obj.ti>14),.5,.8);
+                -.03*abs(obj.dx_des)+0*1.7*lpo-0*.1*(obj.ti>14),.5,.8);
             
             if t<=T1 % Retract
                 [q23d,dq23d]=spline3(t,T1,obj.q23d0,obj.dq23d0,acos(lmin),0);
@@ -824,7 +824,7 @@ classdef  siavash_walkNrunNhop < Controller
             switch obj.gaitMode
                 case GaitMode_S.Dynamic
                     
-                    t_c = 2.5; dx_max = 1.4; dy_max = 0.35; obj.lpo=0;
+                    t_c = 3; dx_max = 1.55; dy_max = 0.35; obj.lpo=0;
                 case GaitMode_S.Obstacle
                     t_c=1.5; dx_max=1;  dy_max = 0.35; obj.lpo=0;
                     
