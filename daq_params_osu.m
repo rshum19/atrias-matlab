@@ -96,10 +96,12 @@ LEG1_LEG_A_CALIB_VAL   = 265016179;      %Calibration encoder value in ticks
 LEG1_TRAN_A_CALIB_VAL  = 142485911;      %Calibration encoder value in ticks
 LEG1_LEG_B_CALIB_VAL   = 175692059;      %Calibration encoder value in ticks
 LEG1_TRAN_B_CALIB_VAL  = 142166702;      %Calibration encoder value in ticks
+
 LEG1_LEG_A_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG1_LEG_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG1_TRAN_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
+
 LEG1_MOTOR_A_DIRECTION = -1.0; 
 LEG1_MOTOR_B_DIRECTION = 1.0;
 
@@ -108,19 +110,14 @@ LEG2_LEG_A_CALIB_VAL   = 264841319;      %Calibration encoder value in ticks
 LEG2_TRAN_A_CALIB_VAL  = 142260475;      %Calibration encoder value in ticks
 LEG2_LEG_B_CALIB_VAL   = 261056380;      %Calibration encoder value in ticks
 LEG2_TRAN_B_CALIB_VAL  = 142331860;      %Calibration encoder value in ticks
+
 LEG2_LEG_A_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
 LEG2_TRAN_A_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG2_LEG_B_RAD_PER_CNT = 9.8039216e-09; %Ticks to rad constant
 LEG2_TRAN_B_RAD_PER_CNT = -9.8039216e-09; %Ticks to rad constant
+
 LEG2_MOTOR_A_DIRECTION = -1.0;
 LEG2_MOTOR_B_DIRECTION = 1.0;
-
-BOOM_PITCH_CAL_VALUE_RAD = 0;
-BOOM_PITCH_CAL_VALUE_TICKS  = 20977; % ticks, pitch encoder reading when robot is vertical
-BOOM_ROLL_CAL_VALUE_RAD = 0.1271; %Roll angle (in radians) for calibration point
-BOOM_ROLL_CAL_VALUE_TICKS = 9318; %Roll encoder value for calibration point
-BOOM_ROBOT_VERTICAL_OFFSET = 0.3434; % meters, 
-BOOM_HEIGHT = 1.0287; % meters, top of the center of rotation to robot ground level
 
 % Soft limits for motor positions
 HARD_MOTOR_POSITION_LIMITS_UPPER = [3.60; 4.78; 2.47]; % A B retraction
@@ -128,18 +125,10 @@ HARD_MOTOR_POSITION_LIMITS_LOWER = [1.51; 2.68; 0.50]; % A B extension
 limExt = 0.1;
 MOTOR_POSITION_LIMITS_UPPER = [HARD_MOTOR_POSITION_LIMITS_UPPER(1:2)-limExt; HARD_MOTOR_POSITION_LIMITS_UPPER(3)-0.3];
 MOTOR_POSITION_LIMITS_LOWER = [HARD_MOTOR_POSITION_LIMITS_LOWER(1:2)+limExt; HARD_MOTOR_POSITION_LIMITS_LOWER(3)+0.15];
-%% params for DAQ functions
-fcut_smooth = 16*(2*pi); % Hz, low pass filter cutoff frequency for removing encoder dropouts
-fcut_unwrap = 8*(2*pi); % Hz, low pass filter cutoff frequency for unwrapping angles
+
+% params for DAQ functions
 max_motor_velocity = 7.88; % rad/s
-max_hip_velocity   = 5;    % rad/s -- TODO: calculate the true value of this from the gear ratio and maximum motor RPM
-sensor_start_time = 8; % s
-% two pole low-pass filter params for velocity estimation
-fcut_velocity = 60*(2*pi); % Hz, low pass filter cutoff frequency for velocities
-lpf_damping = sqrt(2)/2;
-B1_lpf_velocity = -2*exp(-lpf_damping*fcut_velocity*sample_time)*cos(fcut_velocity*sample_time*sqrt(1-lpf_damping^2));
-B2_lpf_velocity = exp(-2*lpf_damping*fcut_velocity*sample_time);
-A_lpf_velocity = 1 + B1_lpf_velocity + B2_lpf_velocity;
+max_hip_velocity   = 5;    % rad/s
 
 % Parameters related to incremental encoder decoding
 INC_ENC_RAD_PER_TICK = 2*pi/14000/LEG_MTR_GEAR_RATIO;
