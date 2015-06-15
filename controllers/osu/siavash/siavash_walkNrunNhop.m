@@ -12,7 +12,7 @@ classdef  siavash_walkNrunNhop < Controller
     end % properties
     
     properties
-        sT@double=[1.13 1.08 1.17 .9];  %Torque constant correction coef. (sT)
+        sT@double=[1.1 1.02 1.1 0.88];  %Torque constant correction coef. (sT)
         k_fp_h_v@double=.23;             % Lateral feedforward gain (k_fp_h_v)
         k_fp_l_v@double=.26;            % Sagittal feedforward gain (k_fp_h_v)
         
